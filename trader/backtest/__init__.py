@@ -1,7 +1,7 @@
 # nopycln: file
 
 from .futures_trader import BacktestFuturesTrader
-from .indicator_optimizer import IndicatorOptimizer
+from .tape import ArrayTape
 from .position import BacktestPosition
 from .transform_positions import (
     positions_to_array,
