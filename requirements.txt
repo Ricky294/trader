@@ -1,0 +1,8 @@
+git+https://github.com/Ricky294/cryptodata.git@develop
+numpy
+pandas
+python-binance
+plotly
+tqdm
+pyyaml
+numba
