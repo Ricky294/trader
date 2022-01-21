@@ -3,10 +3,10 @@ from typing import Union
 from ..const.trade_actions import BUY as TA_BUY
 from ..const.trade_actions import SELL as TA_SELL
 
+from ..enum.order import OrderSide, OrderType, TimeInForce
+
 from ..util.common import round_down
 from ..util.trade import opposite_side
-
-from ..enum.order import OrderSide, OrderType, TimeInForce
 
 
 class Order:
@@ -39,16 +39,21 @@ class Order:
             time_in_force: str = None,
             reduce_only=False,
     ):
-        self.side = int(side)
-        if self.side not in (TA_BUY, TA_SELL):
-            raise ValueError(f"Side must be {TA_BUY} or {TA_SELL}. Invalid value: {self.side}.")
+        if isinstance(side, str):
+            if side.upper() in ("BUY", "LONG"):
+                self.side = TA_BUY
+            elif side.upper() in ("SELL", "SHORT"):
+                self.side = TA_SELL
+            else:
+                raise ValueError(f"Side must be 'BUY', 'LONG', 'SELL or 'SHORT'. Invalid value: {self.side}.")
+        else:
+            self.side = int(side)
+            if self.side not in (TA_BUY, TA_SELL):
+                raise ValueError(f"Side must be {TA_BUY} or {TA_SELL}. Invalid value: {self.side}.")
 
         self.symbol = symbol
         self.type = str(type)
-        if quantity is not None:
-            self.quantity = abs(float(quantity))
-        else:
-            self.quantity = None
+        self.quantity = quantity
         self.price = price
         self.stop_price = stop_price
         self.close_position = close_position

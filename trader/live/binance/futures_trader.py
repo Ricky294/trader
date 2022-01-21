@@ -46,7 +46,7 @@ class BinanceFuturesTrader(FuturesTrader):
         orders = create_position(
             symbol=symbol,
             quantity=quantity,
-            price=price,
+            entry_price=price,
             take_profit_price=take_profit_price,
             stop_loss_price=stop_loss_price
         )

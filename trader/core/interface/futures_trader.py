@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from ..model import Balance, Order, SymbolInfo, Position
+from ..model import Balance, Order, Position
 
 
 class FuturesTrader(ABC):
@@ -30,9 +30,6 @@ class FuturesTrader(ABC):
 
     @abstractmethod
     def get_open_orders(self, symbol: str) -> List[Order]: ...
-
-    @abstractmethod
-    def get_symbol_info(self, symbol: str) -> SymbolInfo: ...
 
     @abstractmethod
     def get_position(self, symbol: str) -> Position: ...

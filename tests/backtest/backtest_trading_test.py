@@ -4,7 +4,7 @@ from trader.backtest import BacktestFuturesTrader, run_backtest, positions_to_ar
 from trader.backtest.transform_positions import add_or_reduce_positions_to_array
 from trader.backtest.plotter import plot_backtest_results
 
-from trader.core.model import SymbolInfo, Balance
+from trader.core.model import Balance
 from trader.core.const.trade_actions import SELL, BUY
 from trader.core.const.candle_index import OPEN_PRICE_INDEX, CLOSE_PRICE_INDEX
 from trader.core.enum import CandlestickType
@@ -78,12 +78,13 @@ def test_backtest_trading():
 
     trader = BacktestFuturesTrader(
         interval="1m",
-        symbol_info=SymbolInfo(symbol="BTCUSDT", quantity_precision=3, price_precision=2),
+        symbol="BTCUSDT",
         balance=Balance("USDT", total=start_cash, available=start_cash),
-        fee_ratio=0,
-        leverage=10,
+        maker_fee_rate=0.0002,
+        taker_fee_rate=0.0004,
+        leverage=3,
     )
-    strategy = TestStrategy("XYZ", trader=trader, trade_ratio=0.01)
+    strategy = TestStrategy("XYZ", trader=trader, trade_ratio=0.5)
 
     run_backtest(
         candles=candles,
