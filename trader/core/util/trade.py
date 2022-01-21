@@ -70,6 +70,20 @@ def get_side_by_quantity(quantity: Union[float, int]):
     return BUY if quantity > 0 else SELL
 
 
+def _calculate_money(price: float, quantity: float, leverage: int):
+    return price * quantity * leverage
+
+
+def calculate_fee(price: float, quantity: float, fee_rate: float, leverage: int):
+    money = _calculate_money(price=price, quantity=quantity, leverage=leverage)
+    return money * fee_rate * leverage
+
+
+def calculate_money(price: float, quantity: float, fee_rate: float, leverage: int):
+    money = _calculate_money(price=price, quantity=quantity, leverage=leverage)
+    return money - (money * fee_rate * leverage)
+
+
 def calculate_quantity(
         side: int,
         balance: float,
@@ -130,7 +144,7 @@ def calculate_target_price(
 def create_position(
         symbol: str,
         quantity: float,
-        price: float = None,
+        entry_price: float = None,
         take_profit_price: float = None,
         stop_loss_price: float = None,
 ):
@@ -143,10 +157,10 @@ def create_position(
             raise ValueError("Invalid take profit and/or stop loss price.")
 
     side = BUY if quantity > 0 else SELL
-    if price is None:
+    if entry_price is None:
         entry_order = Order.market(symbol=symbol, side=side, quantity=quantity)
     else:
-        entry_order = Order.limit(symbol=symbol, side=side, quantity=quantity, price=price)
+        entry_order = Order.limit(symbol=symbol, side=side, quantity=quantity, price=entry_price)
 
     exit_side = opposite_side(side)
     take_profit_order = None
