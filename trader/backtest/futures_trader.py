@@ -14,7 +14,7 @@ from ..core.const.candle_index import (
     CLOSE_PRICE_INDEX,
 )
 from ..core.util.common import interval_to_seconds
-from ..core.util.trade import create_position, calculate_fee
+from ..core.util.trade import create_position, calculate_money_fee
 
 from .position import BacktestPosition
 
@@ -36,7 +36,6 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
         """
 
         super().__init__()
-        self.total_fee_cost = .0
         self.symbol = symbol
         self.maker_fee_rate = maker_fee_rate
         self.taker_fee_rate = taker_fee_rate
@@ -58,6 +57,8 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
         self.latest_high_price: float
         self.latest_low_price: float
         self.latest_close_price: float
+
+        self.total_paid_fee = .0
 
     def _is_limit_buy_hit(self):
         return (
@@ -101,7 +102,7 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
         return self.stop_order
 
     def __apply_fee(self, price: float, quantity: float, is_taker: bool):
-        fee = calculate_fee(
+        fee = calculate_money_fee(
             price=price,
             quantity=quantity,
             fee_rate=self.taker_fee_rate if is_taker else self.maker_fee_rate,
@@ -110,18 +111,17 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
 
         self.balance.total -= fee
         self.balance.available -= fee
-        self.total_fee_cost += fee
+        self.total_paid_fee += abs(fee)
 
     def __create_or_adjust_position(self, price: float, quantity: float, is_taker: bool):
         self.__apply_fee(price, quantity, is_taker)
-        fee_reduced_quantity = quantity - (quantity * self.taker_fee_rate if is_taker else self.maker_fee_rate)
 
         if self.position is None:
             self.position = BacktestPosition(
                 symbol=self.symbol,
                 entry_time=self.open_time,
                 entry_price=price,
-                entry_quantity=fee_reduced_quantity,
+                entry_quantity=quantity,
                 leverage=self._leverage,
             )
             self.balance.available -= price * abs(quantity)

@@ -4,11 +4,12 @@ from .exceptions import LiquidationError, PositionError
 from trader.core.const.candle_index import CLOSE_PRICE_INDEX, LOW_PRICE_INDEX, HIGH_PRICE_INDEX
 from trader.core.model import Position, Balance
 from trader.core.const.trade_actions import LONG, SHORT, BUY
+from trader.core.util.trade import reduce_quantity_with_fee
 
 
 class BacktestPosition(Position):
 
-    __slots__ = "money", "times", "prices", "quantities", "__profit"
+    __slots__ = "times", "prices", "quantities", "__profit"
 
     def __init__(
             self,

@@ -1,7 +1,6 @@
 import numpy as np
 
-from trader.backtest import BacktestFuturesTrader, run_backtest, positions_to_array
-from trader.backtest.transform_positions import add_or_reduce_positions_to_array
+from trader.backtest import BacktestFuturesTrader, run_backtest
 from trader.backtest.plotter import plot_backtest_results
 
 from trader.core.model import Balance
@@ -82,7 +81,7 @@ def test_backtest_trading():
         balance=Balance("USDT", total=start_cash, available=start_cash),
         maker_fee_rate=0.0002,
         taker_fee_rate=0.0004,
-        leverage=3,
+        leverage=1,
     )
     strategy = TestStrategy("XYZ", trader=trader, trade_ratio=0.5)
 
@@ -93,8 +92,7 @@ def test_backtest_trading():
 
     plot_backtest_results(
         candles=candles.T,
-        positions=positions_to_array(trader.positions),
-        add_or_reduce_positions=add_or_reduce_positions_to_array(trader.positions),
+        trader=trader,
         start_cash=start_cash,
         candlestick_type=CandlestickType.JAPANESE,
     )
