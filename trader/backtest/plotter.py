@@ -7,19 +7,10 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from .transform_positions import (
-    TIME_INDEX,
-    PRICE_INDEX,
-    QUANTITY_INDEX,
-    EXIT_TIME_INDEX,
-    EXIT_PRICE_INDEX,
-    SIDE_INDEX,
-    PROFIT_INDEX,
-    EXIT_QUANTITY_INDEX,
-)
+from . import BacktestFuturesTrader, BacktestPosition
+
 from .log import logger
 from .plot import Plot
-from .trade_report import TradeReport
 
 from trader.core.const.candle_index import (
     OPEN_TIME_INDEX,
@@ -39,35 +30,36 @@ from trader.core.util.trade import to_heikin_ashi
 
 def plot_backtest_results(
         candles: np.ndarray,
-        positions: np.ndarray,
-        add_or_reduce_positions: np.ndarray,
+        trader: BacktestFuturesTrader,
         start_cash: float,
-        trade_report: TradeReport = None,
         log_scale=False,
         extra_plots: List[Plot] = None,
         candlestick_type: CandlestickType = CandlestickType.LINE,
 ):
     logger.info("Plotting results.")
 
+    positions: List[BacktestPosition] = trader.positions
+
     def __create_custom_data(*arrays: np.ndarray):
         return np.stack(tuple(arrays), axis=-1)
 
     candle_open_times = candles[OPEN_TIME_INDEX]
 
-    entry_time = map_match(candle_open_times, positions[TIME_INDEX])
-    entry_price = assign_where_not_zero(entry_time, positions[PRICE_INDEX])
-    quantity = assign_where_not_zero(entry_time, positions[QUANTITY_INDEX])
-    side = assign_where_not_zero(entry_time, positions[SIDE_INDEX])
+    entry_time = map_match(candle_open_times, tuple(pos.times[0] for pos in positions))
+    entry_price = assign_where_not_zero(entry_time, tuple(pos.prices[0] for pos in positions))
+    quantity = assign_where_not_zero(entry_time, tuple(pos.quantities[0] for pos in positions))
+    side = assign_where_not_zero(entry_time, tuple(pos.side for pos in positions))
     side = np.where(side == BUY, "Long", "Short")
 
-    middle_time = map_match(candle_open_times, add_or_reduce_positions[TIME_INDEX])
-    middle_quantity = assign_where_not_zero(middle_time, add_or_reduce_positions[QUANTITY_INDEX])
-    middle_price = assign_where_not_zero(middle_time, add_or_reduce_positions[PRICE_INDEX])
+    middle_time = map_match(candle_open_times, tuple(time for pos in positions for time in pos.times[1:-1]))
+    middle_quantity = assign_where_not_zero(middle_time, tuple(quantity for pos in positions for quantity in pos.quantities[1:-1]))
+    middle_price = assign_where_not_zero(middle_time, tuple(price for pos in positions for price in pos.prices[1:-1]))
 
-    exit_time = map_match(candle_open_times, positions[EXIT_TIME_INDEX])
-    exit_price = assign_where_not_zero(exit_time, positions[EXIT_PRICE_INDEX])
-    exit_quantity = assign_where_not_zero(exit_time, positions[EXIT_QUANTITY_INDEX])
-    profit = assign_where_not_zero(exit_time, positions[PROFIT_INDEX])
+    profit_array = np.array(tuple(pos.profit() for pos in positions))
+    exit_time = map_match(candle_open_times, tuple(pos.times[-1] for pos in positions))
+    exit_price = assign_where_not_zero(exit_time, tuple(pos.prices[-1] for pos in positions))
+    exit_quantity = assign_where_not_zero(exit_time, tuple(pos.quantities[-1] for pos in positions))
+    profit = assign_where_not_zero(exit_time, tuple(pos.profit() for pos in positions))
 
     capital = np.cumsum(profit) + start_cash
 
@@ -278,11 +270,16 @@ def plot_backtest_results(
         return fig
 
     def include_info_on_figure():
+        wins = (profit_array > 0).sum()
+        losses = (profit_array < 0).sum()
+        win_rate = wins / (wins + losses)
+        profit_sum = profit_array.sum()
+        total_profit = (profit_sum + start_cash) / start_cash
 
         fig.add_annotation(
             text="<br>".join([
-                f"Wins: {trade_report.wins}, Losses: {trade_report.losses}, Win rate: {(trade_report.win_rate * 100):.3f}%",
-                f"Largest win: {trade_report.biggest_win:.2f}, Largest loss: {trade_report.biggest_loss:.2f}",
+                f"Wins: {wins}, Losses: {losses}, Win rate: {(win_rate * 100):.3f}%",
+                f"Largest win: {profit_array.max():.2f}, Largest loss: {profit_array.min():.2f}",
             ]),
             align="left",
             xref="x domain", yref="y domain",
@@ -293,11 +290,10 @@ def plot_backtest_results(
             row=2, col=1,
         )
 
-        percentage_profit = trade_report.profit * 100
-
         fig.add_annotation(
             text="<br>".join([
-                f"Final balance: {trade_report.end_cash:.3f} ({'+' if percentage_profit > 0 else ''}{percentage_profit:.3f}%)",
+                f"Final balance: {profit_sum + start_cash:.3f} ({'+' if profit_sum > 0 else ''}{total_profit * 100:.3f}%)",
+                f"Total paid fee: {trader.total_paid_fee:.3f}"
             ]),
             align="left",
             xref="x domain", yref="y domain",
@@ -309,6 +305,8 @@ def plot_backtest_results(
         )
 
     fig = create_plots()
-    if trade_report is not None:
+
+    if len(positions) > 0:
         include_info_on_figure()
+
     fig.show()

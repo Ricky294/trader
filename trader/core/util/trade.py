@@ -74,14 +74,22 @@ def _calculate_money(price: float, quantity: float, leverage: int):
     return price * quantity * leverage
 
 
-def calculate_fee(price: float, quantity: float, fee_rate: float, leverage: int):
-    money = _calculate_money(price=price, quantity=quantity, leverage=leverage)
-    return money * fee_rate * leverage
+def reduce_quantity_with_fee(quantity: float, fee_rate: float):
+    return quantity - calculate_quantity_fee(quantity=quantity, fee_rate=fee_rate)
 
 
-def calculate_money(price: float, quantity: float, fee_rate: float, leverage: int):
+def calculate_quantity_fee(quantity: float, fee_rate: float):
+    return quantity * fee_rate
+
+
+def reduce_money_with_fee(price: float, quantity: float, fee_rate: float, leverage: int):
     money = _calculate_money(price=price, quantity=quantity, leverage=leverage)
     return money - (money * fee_rate * leverage)
+
+
+def calculate_money_fee(price: float, quantity: float, fee_rate: float, leverage: int):
+    money = _calculate_money(price=price, quantity=quantity, leverage=leverage)
+    return abs(money * fee_rate * leverage)
 
 
 def calculate_quantity(
