@@ -8,22 +8,27 @@ from crypto_data.binance.schema import OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PR
 from crypto_data.enum.market import Market
 from crypto_data.shared.candle_db import CandleDB
 
+from trader.core.exceptions import TraderException
 from trader.core.strategy import Strategy
 
 
 class TradingBot(ABC):
 
-    @classmethod
-    def binance_feed(
-            cls,
-            strategy: Strategy,
+    def __init__(self):
+        self.candles = None
+        self.strategy = None
+
+    def add_strategy(self, strategy: Strategy):
+        self.strategy = strategy
+
+    def with_binance_data(
+            self,
             symbol: str,
             interval: str,
             db_path: str,
             market: Union[Market, str],
     ):
         candle_db = CandleDB(db_path)
-
         candles = get_candles(
             symbol=symbol,
             interval=interval,
@@ -32,18 +37,22 @@ class TradingBot(ABC):
             columns=[OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE, VOLUME],
         )
 
-        return cls(candles=candles, strategy=strategy)
+        self.candles = candles
 
-    def __init__(
-            self,
-            candles: Union[np.ndarray, pd.DataFrame, Iterable],
-            strategy: Strategy,
-    ):
+    def add_data(self, candles: Union[np.ndarray, pd.DataFrame, Iterable]):
         self.candles = candles_as_numpy_array(candles)
-        self.strategy = strategy
 
     @abstractmethod
-    def run(self, *args, **kwargs): ...
+    def _run(self, *args, **kwargs): ...
+
+    def run(self, *args, **kwargs):
+        if self.strategy is None or self.candles is None:
+            raise TraderException(
+                "Unable to run bot.\n"
+                "Reason: self.strategy and self.candles must not be None.\n"
+                "Solution: Use add_data and add_strategy methods."
+            )
+        self._run(*args, **kwargs)
 
 
 def candles_as_numpy_array(

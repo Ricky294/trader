@@ -48,9 +48,7 @@ def test_backtest_trading():
     )
     strategy = TestStrategy("XYZ", trader=trader, trade_ratio=0.5, leverage=1)
 
-    bot = BacktestBot(
-        candles=candles,
-        strategy=strategy,
-    )
-
+    bot = BacktestBot()
+    bot.add_data(candles=candles)
+    bot.add_strategy(strategy=strategy)
     bot.run(candlestick_type=CandlestickType.JAPANESE)
