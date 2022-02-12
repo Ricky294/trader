@@ -1,8 +1,5 @@
 import concurrent.futures
-from typing import Union, Iterable, List, Optional
-
-import numpy as np
-import pandas as pd
+from typing import List, Optional
 
 from ..backtest import BacktestFuturesTrader, Plot, run_backtest
 from ..core.interface import TradingBot
@@ -12,16 +9,12 @@ from ..core.strategy import Strategy
 
 class BacktestBot(TradingBot):
 
-    def __init__(
-            self,
-            candles: Union[np.ndarray, pd.DataFrame, Iterable],
-            strategy: Strategy,
-    ):
+    def add_strategy(self, strategy: Strategy):
         if not isinstance(strategy.trader, BacktestFuturesTrader):
             raise ValueError("Trader is not an instance of BacktestFuturesTrader!")
-        super().__init__(candles, strategy)
+        self.strategy = strategy
 
-    def run(
+    def _run(
             self,
             log_scale: bool = False,
             candlestick_type: CandlestickType = CandlestickType.LINE,

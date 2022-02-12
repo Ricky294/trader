@@ -14,17 +14,12 @@ from ..binance import BinanceFuturesTrader
 
 class BinanceBot(TradingBot):
 
-    def __init__(
-            self,
-            candles: Union[np.ndarray, pd.DataFrame, Iterable],
-            strategy: Strategy,
-    ):
-        if not isinstance(strategy.trader, (BinanceFuturesTrader,)):
-            raise ValueError("Trader is not an instance of BacktestFuturesTrader!")
+    def add_strategy(self, strategy: Strategy):
+        if not isinstance(strategy.trader, BinanceFuturesTrader):
+            raise ValueError("Trader is not an instance of BinanceFuturesTrader!")
+        self.strategy = strategy
 
-        super().__init__(candles, strategy)
-
-    def run(
+    def _run(
             self,
             symbol: str,
             interval: str,
