@@ -1,16 +1,16 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from binance.client import Client
 
-from ...core.interface import FuturesTrader
-from ...core.const.trade_actions import BUY
-from ...core.model import Order
-from ...core.util.trade import create_position
+from trader.core.enum import OrderSide, TimeInForce
+from trader.core.interface import FuturesTrader
+from trader.core.model import Order
+from trader.core.util.trade import create_orders
 
-from ..binance import BinanceBalance
-from ..binance import BinancePosition
-from ..binance import BinanceSymbolInfo
-from ..binance.helpers import get_symbol_info, get_position_info
+from .balance import BinanceBalance
+from .position import BinancePosition, close_position_market, close_position_limit, take_profit_market, stop_loss_market
+from .helpers import get_symbol_info, get_position
+from ...core.exceptions import BalanceError
 
 
 class BinanceFuturesTrader(FuturesTrader):
@@ -18,68 +18,90 @@ class BinanceFuturesTrader(FuturesTrader):
     def __init__(self, client: Client):
         self.client = client
 
-    def close_position(self, symbol: str):
+    def get_latest_price(self, symbol: str):
+        return float(self.client.futures_symbol_ticker(symbol=symbol)["price"])
+
+    def close_position_limit(self, symbol: str, price: float, time_in_force: Union[TimeInForce, str] = "GTC"):
         position = self.get_position(symbol=symbol)
+        info = get_symbol_info(client=self.client, symbol=symbol)
+        close_position_limit(
+            client=self.client,
+            position=position,
+            price=price,
+            price_precision=info.price_precision,
+            time_in_force=time_in_force,
+        )
 
-        if position is not None:
-            side = "SELL" if position.side == BUY else "BUY"
+    def close_position_market(self, symbol: str):
+        position = self.get_position(symbol=symbol)
+        close_position_market(client=self.client, position=position)
 
-            order = Order.market(
-                symbol=symbol,
-                side=side,
-                quantity=position.quantity,
-            )
-            self.client.futures_create_order(**order)
+    def take_profit_market(self, symbol: str, stop_price: float):
+        position = self.get_position(symbol=symbol)
+        info = get_symbol_info(client=self.client, symbol=symbol)
+        take_profit_market(
+            client=self.client,
+            position=position,
+            stop_price=stop_price,
+            price_precision=info.price_precision
+        )
+
+    def stop_loss_market(self, symbol: str, stop_price: float):
+        position = self.get_position(symbol=symbol)
+        info = get_symbol_info(client=self.client, symbol=symbol)
+        stop_loss_market(
+            client=self.client,
+            position=position,
+            stop_price=stop_price,
+            price_precision=info.price_precision,
+        )
 
     def get_leverage(self, symbol) -> int:
-        return int(get_position_info(self.client, symbol)["leverage"])
+        return int(get_position(self.client, symbol)["leverage"])
 
     def create_position(
             self,
             symbol: str,
-            quantity: float,
+            money: float,
+            side: Union[int, OrderSide],
+            leverage: int,
             price: float = None,
             take_profit_price: float = None,
             stop_loss_price: float = None,
-    ) -> List[Order]:
+    ):
 
-        orders = create_position(
+        orders = create_orders(
             symbol=symbol,
-            quantity=quantity,
+            money=money,
+            side=side,
             entry_price=price,
             take_profit_price=take_profit_price,
             stop_loss_price=stop_loss_price
         )
 
-        symbol_info = self.get_symbol_info(symbol=symbol)
-        orders = dict(batchOrders=[order.to_binance_order(symbol_info) for order in orders if order is not None])
+        info = get_symbol_info(client=self.client, symbol=symbol)
 
-        binance_orders = self.client.futures_place_batch_order(**orders)
+        if price is None:
+            price = self.get_latest_price(symbol=symbol)
 
-        return [Order.from_binance(order) for order in binance_orders]
+        quantity = money / price * leverage
 
-    def create_order(self, order: Order) -> Order:
-        symbol_info = self.get_symbol_info(symbol=order.symbol)
-        order = self.client.futures_create_order(
-            **order.to_binance_order(
-                price_precision=symbol_info.price_precision,
-                quantity_precision=symbol_info.quantity_precision
-            )
-        )
-        return Order.from_binance(order)
-
-    def cancel_orders(self, *orders: Order) -> List[Order]:
-        return [
-            self.client.futures_cancel_order(symbol=order.symbol, orderId=order.order_id)
-            for order in orders
+        orders = [order.to_binance_order(
+            quantity=quantity,
+            quantity_precision=info.quantity_precision,
+            price_precision=info.price_precision)
+            for order in orders if order is not None
         ]
 
-    def cancel_symbol_orders(self, symbol: str) -> List[Order]:
-        canceled_orders: List[Dict] = self.client.futures_cancel_all_open_orders(
-            symbol=symbol
-        )
+        self.set_leverage(symbol=symbol, leverage=leverage)
 
-        return [Order.from_binance(order) for order in canceled_orders]
+        for order in orders:
+            self.client.futures_create_order(**order)
+
+        # self.client.futures_place_batch_order(batchOrders=orders)
+
+    def cancel_orders(self, symbol: str):
+        self.client.futures_cancel_all_open_orders(symbol=symbol)
 
     def get_open_orders(self, symbol: str = None) -> List[Order]:
         open_orders: List[Dict] = self.client.futures_get_open_orders(symbol=symbol)
@@ -92,40 +114,20 @@ class BinanceFuturesTrader(FuturesTrader):
             BinanceBalance(
                 asset=balance["asset"],
                 total=balance["balance"],
-                available=balance["withdrawAvailable"],
+                free=balance["withdrawAvailable"],
             )
             for balance in balances
-            if float(balance["balance"]) > 0.0
+            if float(balance["withdrawAvailable"]) > 0.0
         ]
 
     def get_balance(self, asset: str) -> BinanceBalance:
         for balance in self.get_balances():
             if balance.asset == asset:
                 return balance
-
-        raise ValueError(f"No available {asset!r} balance.")
-
-    def get_positions(self) -> List[BinancePosition]:
-        positions: List[Dict] = self.client.futures_account()["positions"]
-
-        return [
-            BinancePosition(**position)
-            for position in positions
-            if float(position["positionAmt"]) != .0
-        ]
+        raise BalanceError(f"{asset!r} account balance is 0.")
 
     def get_position(self, symbol: str) -> Optional[BinancePosition]:
-        for position in self.get_positions():
-            if position.symbol == symbol:
-                return position
-
-    def get_all_symbol_info(self) -> List[BinanceSymbolInfo]:
-        exchange_info: dict = self.client.futures_exchange_info()
-
-        return [BinanceSymbolInfo(**symbol_info) for symbol_info in exchange_info["symbols"]]
-
-    def get_symbol_info(self, symbol: str) -> BinanceSymbolInfo:
-        return get_symbol_info(self.client, symbol)
+        return get_position(client=self.client, symbol=symbol)
 
     def set_leverage(self, symbol: str, leverage: int):
         self.client.futures_change_leverage(symbol=symbol, leverage=leverage)

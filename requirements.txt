@@ -6,3 +6,4 @@ plotly
 tqdm
 pyyaml
 numba
+talib

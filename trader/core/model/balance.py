@@ -1,16 +1,16 @@
+from trader.core.exceptions import BalanceError
+
 
 class Balance:
 
-    __slots__ = "asset", "total", "available"
+    __slots__ = "asset", "free"
 
-    def __init__(self, asset: str, total: float, available: float):
+    def __init__(self, asset: str, free: float):
+        if float(free) <= 0:
+            raise BalanceError(f"{asset!r} balance must be greater than 0.")
+
         self.asset = str(asset)
-        self.total = float(total)
-        self.available = float(available)
-
-    @property
-    def used(self):
-        return self.total - self.available
+        self.free = float(free)
 
     def __str__(self):
-        return f"{self.asset}: (total: {self.total}, available: {self.available})"
+        return f"{self.free} {self.asset}"

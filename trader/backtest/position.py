@@ -1,77 +1,109 @@
-import numpy as np
+from typing import Union, Optional
 
-from .exceptions import LiquidationError, PositionError
-from trader.core.const.candle_index import CLOSE_PRICE_INDEX, LOW_PRICE_INDEX, HIGH_PRICE_INDEX
-from trader.core.model import Position, Balance
-from trader.core.const.trade_actions import LONG, SHORT, BUY
-from trader.core.util.trade import reduce_quantity_with_fee
+from .balance import BacktestBalance
+from trader.core.model.candles import Candles
+from .exceptions import LiquidationError
+from trader.core import PositionError
+
+from trader.core.model import Position, LimitOrder, MarketOrder, Order
+from trader.core.const.trade_actions import BUY, SELL
+from ..core.util.trade import calculate_money_fee
 
 
 class BacktestPosition(Position):
 
-    __slots__ = "times", "prices", "quantities", "__profit"
+    __slots__ = "entry_time", "entry_fee", "exit_fee", "exit_time", "exit_price", "__candles"
 
     def __init__(
             self,
-            symbol: str,
-            entry_time: int,
-            entry_price: float,
-            entry_quantity: float,
+            order: Union[MarketOrder, LimitOrder],
+            candles: Candles,
+            balance: BacktestBalance,
             leverage: int,
+            taker_fee_rate: float,
+            maker_fee_rate: float,
     ):
-        if entry_quantity == 0:
-            raise ValueError("Quantity must not be 0!")
 
-        self.times = [entry_time]
-        self.prices = [entry_price]
-        self.quantities = [entry_quantity]
-        self.__profit = .0
+        fee = calculate_money_fee(
+            money=order.money,
+            fee_rate=taker_fee_rate if order.is_taker() else maker_fee_rate,
+            leverage=leverage
+        )
+        balance.free -= fee
+        order.money -= fee
 
-        super().__init__(symbol=symbol, quantity=entry_quantity, leverage=leverage, entry_price=entry_price)
+        super().__init__(
+            symbol=order.symbol,
+            side=order.side,
+            entry_time=int(candles.latest_open_time),
+            entry_price=candles.latest_close_price if order.is_taker() else order.price,
+            money=order.money,
+            leverage=leverage,
+        )
+        self.entry_fee = fee
+        self.__candles = candles
 
-    def __call__(self, candles: np.ndarray, balance: Balance):
-        latest_candle = candles[-1]
-        latest_close = latest_candle[CLOSE_PRICE_INDEX]
-        latest_high = latest_candle[HIGH_PRICE_INDEX]
-        latest_low = latest_candle[LOW_PRICE_INDEX]
+        self.exit_fee: Optional[int] = None
+        self.exit_time: Optional[int] = None
+        self.exit_price: Optional[float] = None
 
-        liquidation_profit = self.__calculate_profit(price=latest_low if self.side == BUY else latest_high)
-
-        if liquidation_profit < 0 and abs(liquidation_profit) > balance.total:
-            raise LiquidationError(f"Position liquidated! Position loss at liquidation {liquidation_profit}.")
-
-        self.__profit = self.__calculate_profit(price=latest_close)
-
-    def adjust(self, time: int, price: float, quantity: float):
+    def __call__(self, balance: BacktestBalance, candles: Candles):
         if self.is_closed():
-            raise PositionError("Position is already closed!")
+            return
 
-        self.times.append(time)
-        self.prices.append(price)
+        self.__candles = candles
 
-        sum_quantity = sum(self.quantities)
-        if (self.side == LONG and sum_quantity + quantity < 0) or (self.side == SHORT and sum_quantity + quantity > 0):
-            quantity = -sum_quantity
-        else:
-            quantity = quantity
+        profit = self._profit(candles.latest_low_price if self.side == BUY else candles.latest_high_price)
 
-        self.quantities.append(quantity)
+        if profit < 0 and abs(profit) >= balance.free:
+            raise LiquidationError(f"Position liquidated! Position loss at liquidation: {profit}.")
 
-    def close(self, time: int, price: float):
-        self.adjust(time=time, price=price, quantity=-sum(self.quantities))
+    def __eq__(self, other):
+        return (
+                isinstance(other, type(self))
+                and (self.symbol, self.entry_time, self.side)
+                == (other.symbol, other.entry_time, other.side)
+        )
 
-    def profit(self):
-        return self.__profit
+    def __hash__(self):
+        return hash((self.symbol, self.entry_time, self.side))
 
     def is_closed(self):
-        return sum(self.quantities) == 0
+        return self.exit_time is not None
 
-    def __calculate_profit(self, price: float = None):
-        if price is None:
-            price = self.prices[-1]
+    def close(
+            self,
+            time: int,
+            price: float,
+            order: Union[Order],
+            balance: BacktestBalance,
+            maker_fee_rate: float,
+            taker_fee_rate: float,
+            leverage: int,
+    ):
+        fee = calculate_money_fee(
+            money=self._money,
+            fee_rate=taker_fee_rate if order.is_taker() else maker_fee_rate,
+            leverage=leverage
+        )
 
-        costs = tuple(price * quantity for price, quantity in zip(self.prices, self.quantities))
-        profits = tuple(price * quantity - cost for cost, quantity in zip(costs, self.quantities))
-        sum_profit = sum(profits) * self.leverage
+        self.exit_fee = fee
+        self.exit_time = time
+        self.exit_price = price
 
-        return sum_profit
+        balance.free -= fee
+        balance.free += self._profit(price)
+
+    def profit(self):
+        price = self.__candles.latest_close_price if self.exit_price is None else self.exit_price
+        return self._profit(price)
+
+    def _profit(self, price: float):
+        if self.side == BUY:
+            ret = price / self.entry_price * self._money - self._money
+        elif self.side == SELL:
+            ret = self.entry_price / price * self._money - self._money
+        else:
+            raise PositionError(f"'side' must be {BUY} or {SELL}.")
+
+        return ret * self.leverage

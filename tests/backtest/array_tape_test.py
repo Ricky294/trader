@@ -4,6 +4,7 @@ import pytest
 from trader.backtest import ArrayTape
 
 
+# time, close_price
 array = np.array(
     [
         [1, 5],
@@ -16,12 +17,10 @@ array = np.array(
 
 
 def buy_sell_signal(data: np.ndarray):
-    data_T = data.T
-
     return np.concatenate((
-        [data_T[1] < 7],
-        [data_T[1] > 9],
-    )).T
+        [data[1] < 7],
+        [data[1] > 9],
+    ))
 
 
 def test_array_tape():
