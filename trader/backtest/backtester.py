@@ -12,7 +12,7 @@ from plotly.subplots import make_subplots
 
 from .futures_trader import BacktestFuturesTrader
 from trader.core.model.candles import Candles
-from .log import logger
+from trader.core.log import logger
 from .plot import Plot
 
 from trader.core.const.trade_actions import BUY

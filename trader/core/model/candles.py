@@ -49,6 +49,12 @@ class Candles:
         self.latest_close_price = float(self.latest[CLOSE_PRICE_INDEX])
         self.latest_volume = float(self.latest[VOLUME_INDEX])
 
+    def line(self, index: int):
+        return self.array.T[index]
+
+    def __getitem__(self, item):
+        return self.array[item]
+
     def open_times(self):
         return self.array.T[OPEN_TIME_INDEX]
 

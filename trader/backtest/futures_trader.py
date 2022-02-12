@@ -41,16 +41,17 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
 
     def __call__(self, candles: Candles):
         self.__candles = candles
-        self.order_group(
-            candles=candles,
-            leverage=self._leverage,
-            balance=self.balance,
-            maker_fee_rate=self.maker_fee_rate,
-            taker_fee_rate=self.taker_fee_rate,
-        )
-        if self.order_group.status == PositionStatus.CLOSED:
-            self.positions.append(self.order_group.position)
-            self.order_group = None
+        if self.order_group is not None:
+            self.order_group(
+                candles=candles,
+                leverage=self._leverage,
+                balance=self.balance,
+                maker_fee_rate=self.maker_fee_rate,
+                taker_fee_rate=self.taker_fee_rate,
+            )
+            if self.order_group.status == PositionStatus.CLOSED:
+                self.positions.append(self.order_group.position)
+                self.order_group = None
 
     def get_latest_price(self, symbol: str):
         return self.__candles.latest_close_price

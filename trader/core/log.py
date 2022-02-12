@@ -1,10 +1,10 @@
 import logging
 
-LIVE_LOGGER_NAME = "live"
+LOGGER_NAME = "trader"
 
 
 def __create_logger():
-    _logger = logging.getLogger(name=LIVE_LOGGER_NAME)
+    _logger = logging.getLogger(name=LOGGER_NAME)
     if not _logger.handlers:
         _logger.propagate = False
         _logger.setLevel(logging.INFO)
@@ -21,4 +21,3 @@ def __create_logger():
 
 
 logger = __create_logger()
-
