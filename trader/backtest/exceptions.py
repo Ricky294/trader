@@ -1,15 +1,12 @@
+from trader.core.exceptions import TraderException
 
-class PositionError(Exception):
+
+class NotEnoughFundsError(TraderException):
     def __init__(self, msg):
-        super(PositionError, self).__init__(msg)
+        super(NotEnoughFundsError, self).__init__(msg)
 
 
-class NotEnoughFundsError(Exception):
+class LiquidationError(TraderException):
     def __init__(self, msg):
-        super().__init__(msg)
-
-
-class LiquidationError(Exception):
-    def __init__(self, msg):
-        super().__init__(msg)
+        super(LiquidationError, self).__init__(msg)
     

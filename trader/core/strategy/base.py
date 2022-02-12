@@ -1,9 +1,8 @@
 from abc import abstractmethod
 from typing import Callable
 
-import numpy as np
-
 from ..interface import FuturesTrader
+from trader.core.model.candles import Candles
 
 
 class Strategy(Callable):
@@ -12,7 +11,7 @@ class Strategy(Callable):
         self.trader = trader
 
     @abstractmethod
-    def on_candle(self, candles: np.ndarray): ...
+    def on_candle(self, candles: Candles): ...
 
-    def __call__(self, candles: np.ndarray):
+    def __call__(self, candles: Candles):
         self.on_candle(candles)

@@ -3,6 +3,7 @@
 from .futures_trader import BacktestFuturesTrader
 from .tape import ArrayTape
 from .position import BacktestPosition
+from .order_group import BacktestOrderGroup
 from .transform_positions import (
     positions_to_array,
     TIME_INDEX,
@@ -19,3 +20,6 @@ from .transform_positions import (
 from .exceptions import NotEnoughFundsError
 from .backtester import run_backtest
 from .log import logger
+from .plot import Plot
+from .bot import BacktestBot, backtest_multiple_bot, BacktestBotRunParams
+from .balance import BacktestBalance

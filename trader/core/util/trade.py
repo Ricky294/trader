@@ -4,9 +4,9 @@ import numba
 import numpy as np
 
 from .common import generate_random_string, generate_ascii
-from ..const.trade_actions import BUY, SELL
 
-from ..enum import OrderSide
+from trader.core.const.trade_actions import BUY, SELL
+from trader.core.enum import OrderSide
 
 
 def str_side_to_int(side: str):
@@ -27,10 +27,10 @@ def int_side_to_str(side: int):
         raise ValueError(f"Side must be {BUY} or {SELL}.")
 
 
-def opposite_side(side: int):
-    if side == BUY:
+def opposite_side(side: Union[OrderSide, int]):
+    if int(side) == BUY:
         return SELL
-    elif side == SELL:
+    elif int(side) == SELL:
         return BUY
     else:
         raise ValueError(f"Side must be {BUY} or {SELL}.")
@@ -70,7 +70,7 @@ def get_side_by_quantity(quantity: Union[float, int]):
     return BUY if quantity > 0 else SELL
 
 
-def _calculate_money(price: float, quantity: float, leverage: int):
+def calculate_money(price: float, quantity: float, leverage: int):
     return price * quantity * leverage
 
 
@@ -83,12 +83,11 @@ def calculate_quantity_fee(quantity: float, fee_rate: float):
 
 
 def reduce_money_with_fee(price: float, quantity: float, fee_rate: float, leverage: int):
-    money = _calculate_money(price=price, quantity=quantity, leverage=leverage)
+    money = calculate_money(price=price, quantity=quantity, leverage=leverage)
     return money - (money * fee_rate * leverage)
 
 
-def calculate_money_fee(price: float, quantity: float, fee_rate: float, leverage: int):
-    money = _calculate_money(price=price, quantity=quantity, leverage=leverage)
+def calculate_money_fee(money: float, fee_rate: float, leverage: int):
     return abs(money * fee_rate * leverage)
 
 
@@ -149,33 +148,34 @@ def calculate_target_price(
         return entry_price - diff
 
 
-def create_position(
+def create_orders(
         symbol: str,
-        quantity: float,
+        money: float,
+        side: Union[int, OrderSide],
         entry_price: float = None,
         take_profit_price: float = None,
         stop_loss_price: float = None,
 ):
-    from ..model import Order
+    from trader.core.model import Order
+
     if take_profit_price is not None and stop_loss_price is not None:
         if (
-                (quantity > 0 and take_profit_price <= stop_loss_price)
-                or (quantity < 0 and take_profit_price >= stop_loss_price)
+                (side == BUY and take_profit_price <= stop_loss_price)
+                or (side == SELL and take_profit_price >= stop_loss_price)
         ):
             raise ValueError("Invalid take profit and/or stop loss price.")
 
-    side = BUY if quantity > 0 else SELL
     if entry_price is None:
-        entry_order = Order.market(symbol=symbol, side=side, quantity=quantity)
+        entry_order = Order.market(symbol=symbol, side=side, money=money)
     else:
-        entry_order = Order.limit(symbol=symbol, side=side, quantity=quantity, price=entry_price)
+        entry_order = Order.limit(symbol=symbol, side=side, money=money, price=entry_price)
 
-    exit_side = opposite_side(side)
+    tp_sl_side = opposite_side(side)
     take_profit_order = None
     stop_order = None
     if take_profit_price is not None:
-        take_profit_order = Order.take_profit_market(symbol=symbol, side=exit_side, stop_price=take_profit_price)
-    elif stop_loss_price is not None:
-        stop_order = Order.stop_market(symbol=symbol, side=exit_side, stop_price=stop_loss_price)
+        take_profit_order = Order.take_profit_market(symbol=symbol, side=tp_sl_side, stop_price=take_profit_price)
+    if stop_loss_price is not None:
+        stop_order = Order.stop_market(symbol=symbol, side=tp_sl_side, stop_price=stop_loss_price)
 
     return entry_order, stop_order, take_profit_order
