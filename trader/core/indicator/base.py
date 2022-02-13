@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Callable
 
-import numpy as np
 import pandas as pd
 
-from trader.core.const.trade_actions import BUY, SELL, NONE
+from trader.core.const.trade_actions import BUY, SELL
+from trader.core.indicator.result import IndicatorResult
+from trader.core.model import Candles
 from trader.core.util.common import Storable
 
 
@@ -23,23 +24,9 @@ class Indicator(ABC, Callable, Storable):
     def __init__(self, *args, **data): ...
 
     @abstractmethod
-    def __call__(self, candles: np.ndarray) -> np.ndarray: ...
+    def __call__(self, candles: Candles) -> IndicatorResult: ...
 
-    def signal(self, candles) -> int:
-        latest_result = self.__call__(candles)[-1]
-        if latest_result[BUY]:
-            return BUY
-        elif latest_result[SELL]:
-            return SELL
-        return NONE
-
-    def buy_signal(self, candles) -> bool:
-        return bool(self.__call__(candles)[-1][BUY])
-
-    def sell_signal(self, candles) -> bool:
-        return bool(self.__call__(candles)[-1][SELL])
-
-    def to_dataframe(self, candles: np.ndarray) -> pd.DataFrame:
+    def to_dataframe(self, candles: Candles) -> pd.DataFrame:
         result = self.__call__(candles)
         index_str = "_INDEX"
         index_columns = {
@@ -51,21 +38,3 @@ class Indicator(ABC, Callable, Storable):
         index_columns[SELL] = "SELL"
         columns = tuple(name for index, name in sorted(index_columns.items()))
         return pd.DataFrame(data=result, columns=columns)
-
-    @staticmethod
-    def concatenate_array(
-            buy_signal_line: np.ndarray,
-            sell_signal_line: np.ndarray,
-            *lines: np.ndarray,
-    ):
-        if len(lines) == 0:
-            return np.concatenate((
-                [buy_signal_line],
-                [sell_signal_line],
-            )).T
-
-        return np.concatenate((
-            [buy_signal_line],
-            [sell_signal_line],
-            [line for line in lines],
-        )).T
