@@ -20,5 +20,5 @@ from .transform_positions import (
 from .exceptions import NotEnoughFundsError
 from .backtester import run_backtest
 from .plot import Plot
-from .bot import BacktestBot, backtest_multiple_bot, BacktestBotRunParams
+from .bot import BacktestBot, backtest_multiple_bot, BacktestRunParams
 from .balance import BacktestBalance
