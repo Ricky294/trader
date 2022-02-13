@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 import numpy as np
 
 from ..const.candle_index import (
@@ -9,6 +9,7 @@ from ..const.candle_index import (
     CLOSE_PRICE_INDEX,
     VOLUME_INDEX,
 )
+from ..enum.ohlcv import OHLCV
 
 
 class Candles:
@@ -44,8 +45,8 @@ class Candles:
         self.latest_close_price = float(self.latest_candle[CLOSE_PRICE_INDEX])
         self.latest_volume = float(self.latest_candle[VOLUME_INDEX])
 
-    def line(self, index: int):
-        return self.array.T[index]
+    def line(self, index: Union[int, OHLCV]):
+        return self.array.T[int(index)]
 
     def __getitem__(self, item):
         return self.array[item]
