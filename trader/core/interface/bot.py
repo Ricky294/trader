@@ -9,6 +9,7 @@ from crypto_data.enum.market import Market
 from crypto_data.shared.candle_db import CandleDB
 
 from trader.core.exceptions import TraderException
+from trader.core.model import Candles
 from trader.core.strategy import Strategy
 
 
@@ -37,7 +38,7 @@ class TradingBot(ABC):
             columns=[OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE, VOLUME],
         )
 
-        self.candles = candles
+        self.candles = candles_as_numpy_array(candles)
 
     def add_data(self, candles: Union[np.ndarray, pd.DataFrame, Iterable]):
         self.candles = candles_as_numpy_array(candles)
@@ -68,7 +69,7 @@ def candles_as_numpy_array(
     if candles.shape[1] < 6:
         raise ValueError(
             f"Pandas dataframe must have at least 6 columns.\n"
-            f"Columns should be present TOHLCV order \n"
+            f"Columns must be present in TOHLCV order \n"
             f"(open time, open price, high price, low price, close price, volume)."
         )
     return candles
