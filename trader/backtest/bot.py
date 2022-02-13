@@ -29,7 +29,7 @@ class BacktestBot(TradingBot):
         )
 
 
-class BacktestBotRunParams:
+class BacktestRunParams:
 
     def __init__(
             self,
@@ -44,12 +44,12 @@ class BacktestBotRunParams:
 
 def __run_bot_from_arg_list(args):
     bot: BacktestBot = args[0]
-    params: BacktestBotRunParams = args[1]
+    params: BacktestRunParams = args[1]
 
     bot.run(**params.__dict__)
 
 
-def backtest_multiple_bot(bots: List[BacktestBot], params_list: List[BacktestBotRunParams]):
+def backtest_multiple_bot(bots: List[BacktestBot], params_list: List[BacktestRunParams]):
 
     if len(bots) != len(params_list):
         raise ValueError("Length of 'bots' differs from the length of 'params_list'.")

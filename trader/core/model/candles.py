@@ -1,4 +1,3 @@
-
 from typing import Optional
 import numpy as np
 
@@ -10,14 +9,13 @@ from ..const.candle_index import (
     CLOSE_PRICE_INDEX,
     VOLUME_INDEX,
 )
-from ..indicator import Indicators
 
 
 class Candles:
 
     __slots__ = (
         "array",
-        "latest",
+        "latest_candle",
         "latest_open_time",
         "latest_open_price",
         "latest_high_price",
@@ -26,12 +24,9 @@ class Candles:
         "latest_volume",
     )
 
-    def indicator(self):
-        return Indicators(self.array)
-
     def __init__(self):
         self.array: Optional[np.ndarray] = None
-        self.latest: Optional[np.ndarray] = None
+        self.latest_candle: Optional[np.ndarray] = None
         self.latest_open_time: Optional[float] = None
         self.latest_open_price: Optional[float] = None
         self.latest_high_price: Optional[float] = None
@@ -39,21 +34,28 @@ class Candles:
         self.latest_close_price: Optional[float] = None
         self.latest_volume: Optional[float] = None
 
-    def update(self, candles: np.ndarray):
+    def next(self, candles: np.ndarray):
         self.array = candles
-        self.latest = candles[-1]
-        self.latest_open_time = float(self.latest[OPEN_TIME_INDEX])
-        self.latest_open_price = float(self.latest[OPEN_PRICE_INDEX])
-        self.latest_high_price = float(self.latest[HIGH_PRICE_INDEX])
-        self.latest_low_price = float(self.latest[LOW_PRICE_INDEX])
-        self.latest_close_price = float(self.latest[CLOSE_PRICE_INDEX])
-        self.latest_volume = float(self.latest[VOLUME_INDEX])
+        self.latest_candle = candles[-1]
+        self.latest_open_time = float(self.latest_candle[OPEN_TIME_INDEX])
+        self.latest_open_price = float(self.latest_candle[OPEN_PRICE_INDEX])
+        self.latest_high_price = float(self.latest_candle[HIGH_PRICE_INDEX])
+        self.latest_low_price = float(self.latest_candle[LOW_PRICE_INDEX])
+        self.latest_close_price = float(self.latest_candle[CLOSE_PRICE_INDEX])
+        self.latest_volume = float(self.latest_candle[VOLUME_INDEX])
 
     def line(self, index: int):
         return self.array.T[index]
 
     def __getitem__(self, item):
         return self.array[item]
+
+    def __len__(self):
+        return len(self.array)
+
+    @property
+    def shape(self):
+        return self.array.shape
 
     def open_times(self):
         return self.array.T[OPEN_TIME_INDEX]

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Union, Iterable
+from typing import Union, Iterable, Optional
 
 import numpy as np
 import pandas as pd
@@ -9,15 +9,14 @@ from crypto_data.enum.market import Market
 from crypto_data.shared.candle_db import CandleDB
 
 from trader.core.exceptions import TraderException
-from trader.core.model import Candles
 from trader.core.strategy import Strategy
 
 
 class TradingBot(ABC):
 
     def __init__(self):
-        self.candles = None
-        self.strategy = None
+        self.candles: Optional[np.ndarray] = None
+        self.strategy: Optional[Strategy] = None
 
     def add_strategy(self, strategy: Strategy):
         self.strategy = strategy
@@ -60,7 +59,7 @@ def candles_as_numpy_array(
         candles: Union[np.ndarray, pd.DataFrame, Iterable],
 ):
     if isinstance(candles, pd.DataFrame):
-        candles = candles.to_numpy(dtype="float").T
+        candles = candles.to_numpy(dtype="float")
     elif isinstance(candles, Iterable):
         candles = np.array(candles)
     elif not isinstance(candles, np.ndarray):

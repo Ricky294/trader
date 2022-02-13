@@ -311,7 +311,7 @@ def run_backtest(
     logger.info(f"Running backtest on {len(candles)} candles.")
     for i in tqdm(range(1, len(candles))):
         candles_head = candles[:i]
-        candle_wrapper.update(candles_head)
+        candle_wrapper.next(candles_head)
         strategy(candle_wrapper)
         strategy.trader(candle_wrapper)
 

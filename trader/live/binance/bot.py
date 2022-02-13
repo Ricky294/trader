@@ -1,7 +1,4 @@
-from typing import Union, Iterable
-
-import numpy as np
-import pandas as pd
+from typing import Union
 
 from crypto_data.binance.np.stream import candle_stream
 from crypto_data.binance.schema import OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE, VOLUME
