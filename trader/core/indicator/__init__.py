@@ -16,7 +16,7 @@ class Indicators:
 
     # --------------------- Overlap indicators --------------------- #
 
-    def BBANDS(self, value: OHLCV.CLOSE_PRICE, period=5, nbdev_up=2, nbdev_down=2, ma_type=0):
+    def BBANDS(self, period=5, nbdev_up=2, nbdev_down=2, ma_type=0, value=OHLCV.CLOSE_PRICE):
         """Bollinger Bands"""
         return talib.BBANDS(
             self.candles[int(value)],
@@ -26,21 +26,21 @@ class Indicators:
             matype=ma_type
         )
 
-    def SMA(self, value: OHLCV.CLOSE_PRICE, period: int):
+    def SMA(self, period: int, value=OHLCV.CLOSE_PRICE):
         """Simple Moving Average"""
         return talib.SMA(
             self.candles[int(value)],
             timeperiod=period,
         )
 
-    def WMA(self, value: OHLCV.CLOSE_PRICE, period: int):
+    def WMA(self, period: int, value=OHLCV.CLOSE_PRICE):
         """Weighted Moving Average"""
         return talib.WMA(
             self.candles[int(value)],
             timeperiod=period,
         )
 
-    def DEMA(self, value: OHLCV.CLOSE_PRICE, period: int):
+    def DEMA(self, period: int, value=OHLCV.CLOSE_PRICE):
         """Exponential Moving Average"""
         return talib.DEMA(
             self.candles[int(value)],
@@ -111,7 +111,7 @@ class Indicators:
             slowperiod=slow_period
         )
 
-    def OBV(self, value: OHLCV.CLOSE_PRICE):
+    def OBV(self, value=OHLCV.CLOSE_PRICE):
         """On Balance Volume"""
         return talib.OBV(
             self.candles[int(value)],
