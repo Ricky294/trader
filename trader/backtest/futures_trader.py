@@ -1,16 +1,17 @@
 import copy
 from typing import Callable, Optional, Union, List
 
-from .balance import BacktestBalance
 from trader.core.model import Candles
-from trader.core import PositionError
-from .exceptions import NotEnoughFundsError
+from trader.core.exception import PositionError
+from trader.core.enum import OrderSide
+from trader.core.enum.position_status import PositionStatus
+from trader.core.interface import FuturesTrader
+from trader.core.util.trade import create_orders
+
+from .balance import BacktestBalance
+from .exception import NotEnoughFundsError
 from .order_group import BacktestOrderGroup
 from .position import BacktestPosition
-from ..core.enum import OrderSide
-from ..core.enum.position_status import PositionStatus
-from ..core.interface import FuturesTrader
-from ..core.util.trade import create_orders
 
 
 class BacktestFuturesTrader(FuturesTrader, Callable):

@@ -1,15 +1,18 @@
 from enum import Enum
 from typing import Union
 
-from ..const.trade_actions import BUY as TA_BUY, SELL as TA_SELL
+from ..const.trade_actions import (
+    BUY as BUY_,
+    SELL as SELL_,
+)
 
 
 class OrderSide(Enum):
-    BUY = TA_BUY
-    SELL = TA_SELL
+    BUY = BUY_
+    SELL = SELL_
 
-    LONG = TA_BUY
-    SHORT = TA_SELL
+    LONG = BUY_
+    SHORT = SELL_
 
     @classmethod
     def from_value(cls, side: Union[str, int]):
@@ -17,12 +20,12 @@ class OrderSide(Enum):
             from ..util.trade import str_side_to_int
             side = str_side_to_int(side)
 
-        if side == TA_BUY:
+        if side == BUY_:
             return cls.BUY
-        elif side == TA_SELL:
+        elif side == SELL_:
             return cls.SELL
         else:
-            ValueError(f"Parameter 'side' must be {TA_BUY} or {TA_SELL}")
+            ValueError(f"Parameter 'side' must be {BUY_} or {SELL_}")
 
     @classmethod
     def from_quantity(cls, quantity: float):
@@ -34,7 +37,7 @@ class OrderSide(Enum):
             raise ValueError("Quantity must not be 0.")
 
     def opposite(self):
-        if self.value == TA_BUY:
+        if self.value == BUY_:
             return self.SELL
         return self.BUY
 
@@ -48,8 +51,8 @@ class OrderSide(Enum):
     def __eq__(self, other):
         if isinstance(other, str):
             return (
-                    (other in ("SELL", "SHORT") and self.value == TA_SELL)
-                    or (other in ("BUY", "LONG") and self.value == TA_BUY)
+                    (other in ("SELL", "SHORT") and self.value == SELL_)
+                    or (other in ("BUY", "LONG") and self.value == BUY_)
             )
         elif isinstance(other, int):
             return other == self.value

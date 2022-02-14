@@ -4,8 +4,8 @@ from crypto_data.binance.np.stream import candle_stream
 from crypto_data.binance.schema import OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE, VOLUME
 from crypto_data.enum.market import Market
 
-from ...core.interface import TradingBot
-from ...core.strategy import Strategy
+from trader.core.interface import TradingBot
+from trader.core.strategy import Strategy
 from ..binance import BinanceFuturesTrader
 
 

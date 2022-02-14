@@ -1,4 +1,4 @@
-from ...core.model import Balance
+from trader.core.model import Balance
 
 
 class BinanceBalance(Balance):

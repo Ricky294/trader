@@ -6,11 +6,11 @@ from trader.core.enum import OrderSide, TimeInForce
 from trader.core.interface import FuturesTrader
 from trader.core.model import Order
 from trader.core.util.trade import create_orders
+from trader.core.exception import BalanceError
 
 from .balance import BinanceBalance
 from .position import BinancePosition, close_position_market, close_position_limit, take_profit_market, stop_loss_market
 from .helpers import get_symbol_info, get_position
-from ...core.exception import BalanceError
 
 
 class BinanceFuturesTrader(FuturesTrader):
