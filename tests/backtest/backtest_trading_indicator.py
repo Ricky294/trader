@@ -1,9 +1,8 @@
 import numpy as np
 
-from trader.backtest import BacktestFuturesTrader, BacktestBot
+from trader.backtest import BacktestFuturesTrader, BacktestBot, OptimizedIndicator
 from trader.backtest.balance import BacktestBalance
 from trader.core.indicator import Indicator
-from trader.core.indicator.result import IndicatorResult
 from trader.core.model.candles import Candles
 
 from trader.core.const.trade_actions import SELL, BUY, NONE
@@ -12,18 +11,17 @@ from trader.core.strategy import Strategy
 
 
 class TestEntryIndicator(Indicator):
+    buy_line = np.array([1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0])
+    sell_line = np.array([0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0])
+    data_line = np.array([0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0])
 
-    def __init__(self, *args, **data):
-        self.buy_signal = np.array([1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0])
-        self.sell_signal = np.array([0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0])
-        self.data = np.array([0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0])
+    def __init__(self):
+        super().__init__("data")
 
-    def __call__(self, candles: Candles) -> IndicatorResult:
-        return IndicatorResult(
-            self.buy_signal[:candles.shape[0]],
-            self.sell_signal[:candles.shape[0]],
-            data=self.data[:candles.shape[0]],
-        )
+    def __call__(self, candles: Candles):
+        self.buy_signal = TestEntryIndicator.buy_line[:candles.shape[0]]
+        self.sell_signal = TestEntryIndicator.sell_line[:candles.shape[0]]
+        self.data = TestEntryIndicator.data_line[:candles.shape[0]]
 
 
 class TestStrategy(Strategy):
@@ -45,8 +43,8 @@ class TestStrategy(Strategy):
     def on_candle(self, candles: Candles):
         position = self.trader.get_position(self.symbol)
 
-        result = self.entry_indicator(candles)
-        signal = result.latest_signal()
+        self.entry_indicator(candles)
+        signal = self.entry_indicator.latest_signal()
 
         if position is None and signal is not NONE:
             latest_close = candles.latest_close_price
@@ -78,7 +76,9 @@ def test_backtest_trading():
         maker_fee_rate=0.0002,
         taker_fee_rate=0.0004,
     )
-    strategy = TestStrategy("XYZ", trader=trader, trade_ratio=0.5, leverage=1, entry_indicator=TestEntryIndicator())
+
+    ind = OptimizedIndicator(TestEntryIndicator(), candles)
+    strategy = TestStrategy("XYZ", trader=trader, trade_ratio=0.5, leverage=1, entry_indicator=ind)
 
     bot = BacktestBot()
     bot.add_data(candles=candles)
