@@ -18,11 +18,12 @@ class _AdditionalIndicatorData:
 
 class Indicator(_AdditionalIndicatorData, Storable, ABC, Callable):
 
-    __slots__ = "buy_signal", "sell_signal"
+    __slots__ = "buy_signal", "sell_signal", "additional_lines"
 
     def __init__(self, *lines: str):
         self.buy_signal = np.array([])
         self.sell_signal = np.array([])
+        self.additional_lines = lines
         super(Indicator, self).__init__(*lines)
 
     def latest_signal(self) -> int:

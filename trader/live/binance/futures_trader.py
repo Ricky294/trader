@@ -10,7 +10,7 @@ from trader.core.util.trade import create_orders
 from .balance import BinanceBalance
 from .position import BinancePosition, close_position_market, close_position_limit, take_profit_market, stop_loss_market
 from .helpers import get_symbol_info, get_position
-from ...core.exceptions import BalanceError
+from ...core.exception import BalanceError
 
 
 class BinanceFuturesTrader(FuturesTrader):

@@ -1,14 +1,13 @@
 from typing import Optional, Union
 
+from trader.core.exception import PositionError
+from trader.core.enum import PositionStatus
+from trader.core.model import MarketOrder, StopMarketOrder, TakeProfitMarketOrder, LimitOrder, Candles
+from trader.core.util.trade import opposite_side
+
 from .balance import BacktestBalance
-from trader.core.model.candles import Candles
-from trader.core import PositionError
 from .position import BacktestPosition
 from .util import is_order_filled, get_filled_first
-
-from ..core.enum.position_status import PositionStatus
-from ..core.model import MarketOrder, StopMarketOrder, TakeProfitMarketOrder, LimitOrder
-from ..core.util.trade import opposite_side
 
 
 class BacktestOrderGroup:

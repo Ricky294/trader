@@ -8,7 +8,7 @@ from crypto_data.binance.schema import OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PR
 from crypto_data.enum.market import Market
 from crypto_data.shared.candle_db import CandleDB
 
-from trader.core.exceptions import TraderException
+from trader.core.exception import TraderException
 from trader.core.model import Candles
 from trader.core.strategy import Strategy
 
