@@ -1,4 +1,4 @@
-from trader.core.exceptions import BalanceError
+from trader.core.exception import BalanceError
 
 
 class Balance:

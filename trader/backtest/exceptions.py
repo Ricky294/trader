@@ -1,4 +1,4 @@
-from trader.core.exceptions import TraderException
+from trader.core.exception import TraderException
 
 
 class NotEnoughFundsError(TraderException):
