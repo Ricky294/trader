@@ -2,12 +2,11 @@ from typing import List
 
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 
 from trader.core.model import Position
 from trader.core.const.candle_index import OPEN_TIME_INDEX
 from trader.core.util.common import Storable
-
-import plotly.graph_objects as go
 
 
 class TradeReport(Storable):

@@ -2,7 +2,7 @@ from typing import Union
 
 from binance import Client
 
-from trader.core import PositionError
+from trader.core.exception import PositionError
 from trader.core.const.trade_actions import LONG, SHORT
 from trader.core.enum import TimeInForce
 from trader.core.model import Position

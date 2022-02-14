@@ -6,7 +6,7 @@ from trader.core.indicator import Indicator
 from trader.core.model.candles import Candles
 
 from trader.core.const.trade_actions import SELL, BUY, NONE
-from trader.core.enum import CandlestickType
+from trader.core.enum import CandlestickType, Signal
 from trader.core.strategy import Strategy
 
 
@@ -46,7 +46,7 @@ class TestStrategy(Strategy):
         self.entry_indicator(candles)
         signal = self.entry_indicator.latest_signal()
 
-        if position is None and signal is not NONE:
+        if position is None and signal is not Signal.NONE:
             latest_close = candles.latest_close_price
 
             stop_loss_price = (

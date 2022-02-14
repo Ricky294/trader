@@ -1,13 +1,12 @@
 from typing import Union, Optional
 
-from .balance import BacktestBalance
-from trader.core.model.candles import Candles
-from .exceptions import LiquidationError
-from trader.core import PositionError
-
-from trader.core.model import Position, LimitOrder, MarketOrder, Order
+from trader.core.exception import PositionError
+from trader.core.model import Position, LimitOrder, MarketOrder, Order, Candles
 from trader.core.const.trade_actions import BUY, SELL
-from ..core.util.trade import calculate_money_fee
+from trader.core.util.trade import calculate_money_fee
+
+from .balance import BacktestBalance
+from .exception import LiquidationError
 
 
 class BacktestPosition(Position):

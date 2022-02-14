@@ -3,5 +3,5 @@ from enum import Enum
 
 class PositionStatus(Enum):
     NONE = "NONE"
-    OPEN = "ACTIVE"
+    OPEN = "OPEN"
     CLOSED = "CLOSED"

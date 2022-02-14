@@ -1,8 +1,8 @@
 from binance.client import Client
 
+from trader.core.exception import PositionError, SymbolError
 from .position import BinancePosition
 from .symbol_info import BinanceSymbolInfo
-from trader.core import PositionError, SymbolError
 
 
 def get_symbol_info(client: Client, symbol: str):
@@ -23,4 +23,3 @@ def get_position(client: Client, symbol: str):
             return BinancePosition(position)
 
     raise PositionError(f"Position {symbol!r} is not found!")
-

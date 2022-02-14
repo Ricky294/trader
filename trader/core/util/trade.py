@@ -3,10 +3,10 @@ from typing import Union
 import numba
 import numpy as np
 
-from .common import generate_random_string, generate_ascii
-
 from trader.core.const.trade_actions import BUY, SELL
 from trader.core.enum import OrderSide
+
+from .common import generate_random_string, generate_ascii
 
 
 def str_side_to_int(side: str):
