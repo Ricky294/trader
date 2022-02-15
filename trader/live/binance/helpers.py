@@ -20,6 +20,9 @@ def get_position(client: Client, symbol: str):
 
     for position in client.futures_account()["positions"]:
         if position["symbol"] == symbol:
-            return BinancePosition(position)
+            try:
+                return BinancePosition(position)
+            except PositionError:
+                return None
 
     raise PositionError(f"Position {symbol!r} is not found!")

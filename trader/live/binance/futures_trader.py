@@ -7,6 +7,7 @@ from trader.core.interface import FuturesTrader
 from trader.core.model import Order
 from trader.core.util.trade import create_orders
 from trader.core.exception import BalanceError
+from trader.core.log import logger
 
 from .balance import BinanceBalance
 from .position import BinancePosition, close_position_market, close_position_limit, take_profit_market, stop_loss_market
@@ -23,6 +24,11 @@ class BinanceFuturesTrader(FuturesTrader):
 
     def close_position_limit(self, symbol: str, price: float, time_in_force: Union[TimeInForce, str] = "GTC"):
         position = self.get_position(symbol=symbol)
+
+        if position is None:
+            logger.warning("No position to close! Skip creating limit order.")
+            return
+
         info = get_symbol_info(client=self.client, symbol=symbol)
         close_position_limit(
             client=self.client,
@@ -34,10 +40,20 @@ class BinanceFuturesTrader(FuturesTrader):
 
     def close_position_market(self, symbol: str):
         position = self.get_position(symbol=symbol)
+
+        if position is None:
+            logger.warning("No position to close! Skip creating market order.")
+            return
+
         close_position_market(client=self.client, position=position)
 
     def take_profit_market(self, symbol: str, stop_price: float):
         position = self.get_position(symbol=symbol)
+
+        if position is None:
+            logger.warning("No position to close! Skip creating take profit market order.")
+            return
+
         info = get_symbol_info(client=self.client, symbol=symbol)
         take_profit_market(
             client=self.client,
@@ -48,6 +64,11 @@ class BinanceFuturesTrader(FuturesTrader):
 
     def stop_loss_market(self, symbol: str, stop_price: float):
         position = self.get_position(symbol=symbol)
+
+        if position is None:
+            logger.warning("No position to close! Skip creating stop loss market order.")
+            return
+
         info = get_symbol_info(client=self.client, symbol=symbol)
         stop_loss_market(
             client=self.client,
@@ -55,9 +76,6 @@ class BinanceFuturesTrader(FuturesTrader):
             stop_price=stop_price,
             price_precision=info.price_precision,
         )
-
-    def get_leverage(self, symbol) -> int:
-        return int(get_position(self.client, symbol)["leverage"])
 
     def create_position(
             self,
@@ -69,6 +87,12 @@ class BinanceFuturesTrader(FuturesTrader):
             take_profit_price: float = None,
             stop_loss_price: float = None,
     ):
+        if self.get_position(symbol) is not None:
+            logger.warning(
+                f"Creating a {symbol} position is not allowed.\n"
+                f"Reason: A {symbol} position is already opened."
+            )
+            return
 
         orders = create_orders(
             symbol=symbol,
