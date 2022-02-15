@@ -57,23 +57,8 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
     def get_latest_price(self, symbol: str):
         return self.__candles.latest_close_price
 
-    def get_order(self):
-        return self.order_group.entry_order
-
-    def get_take_profit_order(self):
-        return self.order_group.take_profit_order
-
-    def get_stop_loss_order(self):
-        return self.order_group.stop_order
-
     def cancel_orders(self, symbol: str):
         self.order_group.cancel_orders()
-
-    def cancel_take_profit_order(self, symbol: str):
-        self.order_group.take_profit_order = None
-
-    def cancel_stop_loss_orders(self, symbol: str):
-        self.order_group.stop_order = None
 
     def create_position(
             self,
@@ -139,6 +124,3 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
 
     def set_leverage(self, symbol: str, leverage: int):
         self._leverage = leverage
-
-    def get_leverage(self, symbol) -> int:
-        return self._leverage

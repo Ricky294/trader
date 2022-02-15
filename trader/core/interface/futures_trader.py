@@ -42,6 +42,3 @@ class FuturesTrader(ABC):
 
     @abstractmethod
     def set_leverage(self, symbol: str, leverage: int) -> None: ...
-
-    @abstractmethod
-    def get_leverage(self, symbol) -> int: ...
