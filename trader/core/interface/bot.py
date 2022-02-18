@@ -24,7 +24,15 @@ class TradingBot(ABC):
     def add_strategy(self, strategy: Strategy):
         self.strategy = strategy
 
-    def __setup_logger(self, enable_logging: bool):
+    def _check_strategy_and_candles(self):
+        if self.strategy is None or self.candles is None:
+            raise TraderException(
+                "Unable to run bot.\n"
+                "Reason: 'self.strategy' and 'self.candles' must not be None.\n"
+                "Solution: Use 'add_data' and 'add_strategy' methods."
+            )
+
+    def _setup_logger(self, enable_logging: bool):
         from trader.backtest.futures_trader import BacktestFuturesTrader
         if isinstance(self.strategy.trader, BacktestFuturesTrader):
             self.strategy.logger = getLogger(BACKTEST_STRATEGY_LOGGER)
@@ -56,17 +64,7 @@ class TradingBot(ABC):
         self.candles.next(candles_as_numpy_array(candles))
 
     @abstractmethod
-    def _run(self, *args, **kwargs): ...
-
-    def run(self, enable_logging=True, *args, **kwargs):
-        if self.strategy is None or self.candles is None:
-            raise TraderException(
-                "Unable to run bot.\n"
-                "Reason: 'self.strategy' and 'self.candles' must not be None.\n"
-                "Solution: Use 'add_data' and 'add_strategy' methods."
-            )
-        self.__setup_logger(enable_logging)
-        self._run(*args, **kwargs)
+    def run(self, *args, **kwargs): ...
 
 
 def candles_as_numpy_array(

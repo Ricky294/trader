@@ -9,6 +9,7 @@ from trader.backtest import (
     BacktestRunParams,
     BacktestBalance,
 )
+from trader.backtest.bot import BacktestPlotParams
 from trader.core.enum import CandlestickType
 
 
@@ -33,8 +34,12 @@ def test_multiple_bot_backtest():
 
     backtest_multiple_bot(
         bots=[bot1, bot2],
-        params_list=[
-            BacktestRunParams(candlestick_type=CandlestickType.JAPANESE),
-            BacktestRunParams(candlestick_type=CandlestickType.JAPANESE),
-        ]
+        run_params=[
+            BacktestRunParams(),
+            BacktestRunParams(),
+        ],
+        plot_params=[
+            BacktestPlotParams(candlestick_type=CandlestickType.JAPANESE),
+            BacktestPlotParams(candlestick_type=CandlestickType.JAPANESE)
+        ],
     )
