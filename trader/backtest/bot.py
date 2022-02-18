@@ -1,10 +1,12 @@
 import concurrent.futures
-from typing import List, Optional
+from typing import List, Optional, Type, Iterable
 
-from ..backtest import BacktestFuturesTrader, Plot, run_backtest
-from ..core.interface import TradingBot
-from ..core.enum import CandlestickType
-from ..core.strategy import Strategy
+from trader.core.indicator import Indicator
+from trader.core.interface import TradingBot
+from trader.core.enum import CandlestickType
+from trader.core.strategy import Strategy
+
+from . import BacktestFuturesTrader, Plot, run_backtest
 
 
 class BacktestBot(TradingBot):
@@ -13,6 +15,33 @@ class BacktestBot(TradingBot):
         if not isinstance(strategy.trader, BacktestFuturesTrader):
             raise ValueError("Trader is not an instance of BacktestFuturesTrader!")
         self.strategy = strategy
+
+    def create_strategy_with_optimized_indicators(
+            self,
+            strategy: Type[Strategy],
+            symbol: str,
+            trader: BacktestFuturesTrader,
+            **kwargs,
+    ):
+        if self.candles is None:
+            raise ValueError("Missing data (self.candles is None). Unable to optimize without precalculated data!")
+
+        from . import OptimizedIndicator
+
+        optimized_kwargs = {}
+        for key, val in kwargs.items():
+            if isinstance(val, Indicator):
+                optimized_kwargs[key] = OptimizedIndicator(candles=self.candles, indicator=val)
+            elif val and isinstance(val, Iterable) and all(isinstance(ind, Indicator) for ind in val):
+                optimized_kwargs[key] = [OptimizedIndicator(candles=self.candles, indicator=v) for v in val]
+            else:
+                optimized_kwargs[key] = val
+
+        self.strategy = strategy(
+            symbol=symbol,
+            trader=trader,
+            **optimized_kwargs,
+        )
 
     def _run(
             self,

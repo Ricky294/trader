@@ -1,3 +1,4 @@
+from trader import MONEY_PRECISION
 from trader.core.exception import BalanceError
 
 
@@ -13,4 +14,4 @@ class Balance:
         self.free = float(free)
 
     def __str__(self):
-        return f"{self.free} {self.asset}"
+        return f"{self.free:.{MONEY_PRECISION}f} {self.asset}"

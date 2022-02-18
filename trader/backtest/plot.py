@@ -1,5 +1,3 @@
-from typing import Callable, List
-
 import numpy as np
 
 
@@ -7,12 +5,12 @@ class Plot:
 
     def __init__(
             self,
-            number: int,
-            type: str,
-            params: List[dict],
-            data_callback: Callable[[np.ndarray], np.ndarray],
+            figure_index: int,
+            plot_type: str,
+            plot_params: dict,
+            y_data: np.ndarray,
     ):
-        self.number = number
-        self.params = params
-        self.type = type
-        self.data_callback = data_callback
+        self.figure_index = figure_index
+        self.plot_type = plot_type
+        self.plot_params = plot_params
+        self.y_data = y_data

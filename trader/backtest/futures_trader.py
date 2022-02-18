@@ -2,11 +2,12 @@ import copy
 from typing import Callable, Optional, Union, List
 
 from trader.core.model import Candles
-from trader.core.exception import PositionError
+from trader.core.exception import PositionError, BalanceError
 from trader.core.enum import OrderSide
 from trader.core.enum.position_status import PositionStatus
 from trader.core.interface import FuturesTrader
 from trader.core.util.trade import create_orders
+from trader.core.util.common import remove_none
 
 from .balance import BacktestBalance
 from .exception import NotEnoughFundsError
@@ -57,16 +58,26 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
     def get_latest_price(self, symbol: str):
         return self.__candles.latest_close_price
 
-    def cancel_orders(self, symbol: str):
-        self.order_group.cancel_orders()
+    def _cancel_orders(self, symbol: str):
+        if self.order_group is None:
+            return []
 
-    def create_position(
+        orders = remove_none((
+            self.order_group.entry_order,
+            self.order_group.close_order,
+            self.order_group.stop_order,
+            self.order_group.take_profit_order,
+        ))
+        self.order_group.cancel_orders()
+        return orders
+
+    def _create_position(
             self,
             symbol: str,
             money: float,
             side: Union[int, OrderSide],
             leverage: int,
-            entry_price: float = None,
+            price: float = None,
             take_profit_price: float = None,
             stop_loss_price: float = None,
     ):
@@ -78,49 +89,58 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
                 f"while your balance is only {self.balance}."
             )
 
-        if self.order_group is None or not self.order_group.is_in_position():
-            self.order_group = BacktestOrderGroup(
-                *create_orders(
-                    symbol=symbol,
-                    money=money,
-                    side=side,
-                    entry_price=entry_price,
-                    take_profit_price=take_profit_price,
-                    stop_loss_price=stop_loss_price,
-                )
+        if self.__is_in_position():
+            raise PositionError(
+                f"Creating a {symbol} position is not allowed, because a {symbol} position is already opened."
             )
 
-    def close_position_market(self, symbol: str):
-        if not self.order_group.is_in_position():
+        orders = create_orders(
+            symbol=symbol,
+            money=money,
+            side=side,
+            entry_price=price,
+            take_profit_price=take_profit_price,
+            stop_loss_price=stop_loss_price,
+        )
+        self.order_group = BacktestOrderGroup(*orders)
+        return remove_none(orders)
+
+    def __is_in_position(self):
+        return self.order_group is not None and self.order_group.is_in_position()
+
+    def _close_position_market(self, symbol: str):
+        if not self.__is_in_position():
             raise PositionError("No position to close.")
 
         self.order_group.create_close_order()
+        return self.order_group.close_order
 
-    def close_position_limit(self, symbol: str, price: float):
-        if not self.order_group.is_in_position():
+    def _close_position_limit(self, symbol: str, price: float):
+        if not self.__is_in_position():
             raise PositionError("No position to close.")
 
         self.order_group.create_close_order(price=price)
+        return self.order_group.close_order
 
-    def get_balance(self, asset: str) -> BacktestBalance:
-        return self.balance
+    def _get_balance(self, asset: str):
+        if asset == self.balance.asset:
+            return self.balance
+        raise BalanceError(f"{asset} balance not found!")
 
-    def get_open_orders(self, symbol: str):
+    def _get_open_orders(self, symbol: str):
         if self.order_group is None:
             return []
 
-        open_orders = []
-        if self.order_group.entry_order is not None:
-            open_orders.append(self.order_group.entry_order)
-        elif self.order_group.take_profit_order is not None:
-            open_orders.append(self.order_group.take_profit_order)
-        elif self.order_group.stop_order is not None:
-            open_orders.append(self.order_group.stop_order)
-        return open_orders
+        return remove_none((
+            self.order_group.entry_order,
+            self.order_group.close_order,
+            self.order_group.stop_order,
+            self.order_group.take_profit_order,
+        ))
 
-    def get_position(self, symbol: str) -> Optional[BacktestPosition]:
-        if self.order_group is not None:
+    def _get_position(self, symbol: str):
+        if self.__is_in_position():
             return self.order_group.position
 
-    def set_leverage(self, symbol: str, leverage: int):
+    def _set_leverage(self, symbol: str, leverage: int):
         self._leverage = leverage

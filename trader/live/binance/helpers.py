@@ -12,7 +12,7 @@ def get_symbol_info(client: Client, symbol: str):
         if symbol_info["symbol"] == symbol:
             return BinanceSymbolInfo(**symbol_info)
 
-    raise SymbolError(f"No {symbol!r} symbol is found..")
+    raise SymbolError(f"No {symbol!r} symbol found.")
 
 
 def get_position(client: Client, symbol: str):
@@ -25,4 +25,4 @@ def get_position(client: Client, symbol: str):
             except PositionError:
                 return None
 
-    raise PositionError(f"Position {symbol!r} is not found!")
+    raise PositionError(f"Position {symbol!r} not found!")

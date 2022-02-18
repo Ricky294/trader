@@ -2,6 +2,7 @@ from abc import abstractmethod
 from typing import Union
 from ..enum import OrderSide
 from ..util.trade import int_side_to_str
+from ... import MONEY_PRECISION, PROFIT_PRECISION, PRICE_PRECISION
 
 
 class Position:
@@ -54,6 +55,7 @@ class Position:
 
     def __str__(self):
         return (
-            f"Position (money: {self._money}, side: {int_side_to_str(self.side)}, "
-            f"leverage: {self.leverage}, entry_price: {self.entry_price}, profit: {self.profit()})"
+            f"Position (money: {self._money:.{MONEY_PRECISION}f}, side: {int_side_to_str(self.side)}, "
+            f"leverage: {self.leverage}, entry_price: {self.entry_price:.{PRICE_PRECISION}f}, "
+            f"profit: {self.profit():.{PROFIT_PRECISION}f})"
         )

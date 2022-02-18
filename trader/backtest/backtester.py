@@ -1,26 +1,26 @@
+import logging
+
 from tqdm import tqdm
 
 from trader.core.strategy import Strategy
 
 import importlib
-from typing import List
+from typing import List, Union
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from .futures_trader import BacktestFuturesTrader
 from trader.core.model.candles import Candles
-from trader.core.log import logger
-from .plot import Plot
-
 from trader.core.const.trade_actions import BUY
 from trader.core.enum import CandlestickType
-from trader.core.util.np import assign_where_not_zero
-
-from trader.core.util.np import map_match
+from trader.core.util.np import assign_where_not_zero, map_match
 from trader.core.util.trade import to_heikin_ashi
+
+from .futures_trader import BacktestFuturesTrader
+from .plot import Plot
+from .. import PROFIT_PRECISION, MONEY_PRECISION, FEE_PRECISION, PRICE_PRECISION, QUANTITY_PRECISION
 
 
 def __plot_backtest_results(
@@ -31,10 +31,20 @@ def __plot_backtest_results(
         extra_plots: List[Plot] = None,
         candlestick_type: CandlestickType = CandlestickType.LINE,
 ):
-    def __create_custom_data(*arrays: np.ndarray):
+    from . import BACKTEST_LOGGER
+
+    def create_custom_data(*arrays: np.ndarray):
         return np.stack(tuple(arrays), axis=-1)
 
-    logger.info("Plotting results.")
+    def create_hover_template(names: List[str], precisions: List[Union[int, None]]):
+        yield "%{x}"
+        for i, (name, precision) in enumerate(zip(names, precisions)):
+            if precision is None:
+                yield f"{name}: %{{customdata[{i}]}}"
+            else:
+                yield f"{name}: %{{customdata[{i}]:.{precision}f}}"
+
+    logging.getLogger(BACKTEST_LOGGER).info("Plotting results.")
 
     positions = trader.positions
     entry_time = map_match(candles.open_times(), tuple(pos.entry_time for pos in positions))
@@ -83,7 +93,7 @@ def __plot_backtest_results(
         extra_graph_max_row = 0
 
         if extra_plots is not None:
-            extra_graph_max_row = max((graph.number for graph in extra_plots))
+            extra_graph_max_row = max((graph.figure_index for graph in extra_plots))
 
         if extra_graph_max_row > 2:
             max_row = extra_graph_max_row
@@ -97,7 +107,7 @@ def __plot_backtest_results(
         ]
 
         if extra_plots is not None:
-            specs.extend([[{"type": graph.type.lower()}] for graph in extra_plots if graph.number > 2])
+            specs.extend([[{"type": graph.plot_type.lower()}] for graph in extra_plots if graph.figure_index > 2])
 
         fig = make_subplots(
             rows=max_row, cols=1,
@@ -173,15 +183,13 @@ def __plot_backtest_results(
                 name="Entry",
                 mode="markers",
                 marker={"color": "#3d8f6d", "symbol": "triangle-up"},
-                customdata=__create_custom_data(entry_price, side, money, quantity, entry_fee),
-                hovertemplate="<br>".join((
-                    "%{x}",
-                    "Price: %{customdata[0]:.2f}",
-                    "Side: %{customdata[1]}",
-                    "Money: %{customdata[2]:.2f}",
-                    "Quantity: %{customdata[3]:.3f}",
-                    "Fee: %{customdata[4]:.3f}",
-                )),
+                customdata=create_custom_data(entry_price, side, money, quantity, entry_fee),
+                hovertemplate="<br>".join(
+                    create_hover_template(
+                        ["Price", "Side", "Money", "Quantity", "Fee"],
+                        [PRICE_PRECISION, None, MONEY_PRECISION, QUANTITY_PRECISION, FEE_PRECISION]
+                    )
+                ),
             ),
             secondary_y=False,
             row=2, col=1,
@@ -198,13 +206,14 @@ def __plot_backtest_results(
                     color="red",
                     symbol="triangle-down",
                 ),
-                customdata=__create_custom_data(exit_price, profit, exit_fee),
-                hovertemplate="<br>".join((
-                    "%{x}",
-                    "Price: %{customdata[0]:.2f}",
-                    "Profit: %{customdata[1]:.2f}",
-                    "Fee: %{customdata[2]:.3f}",
-                ))
+                customdata=create_custom_data(exit_price, profit, exit_fee),
+                hovertemplate="<br>".join(
+                    create_hover_template(
+                        ["Price", "Profit", "Fee"],
+                        [PROFIT_PRECISION, PROFIT_PRECISION, FEE_PRECISION]
+                    )
+                )
+
             ),
             secondary_y=False,
             row=2, col=1,
@@ -225,31 +234,23 @@ def __plot_backtest_results(
         )
 
         if extra_plots is not None:
+            graph_module = importlib.import_module('plotly.graph_objects')
             for graph in extra_plots:
-                graph_module = importlib.import_module(f'plotly.graph_objects')
-                graph_class = getattr(graph_module, graph.type.capitalize())
-                graph_data = graph.data_callback(candles.array)
-                for params in graph.params:
-                    if "constant_y" in params:
-                        y_data = [params.pop("constant_y")] * open_time.size
-                    else:
-                        y_data = graph_data[params.pop("y")]
+                graph_class = getattr(graph_module, graph.plot_type.capitalize())
 
-                    fig.add_trace(
-                        graph_class(
-                            x=open_time,
-                            y=y_data,
-                            **params,
-                        ),
-                        row=graph.number, col=1,
-                    )
+                fig.add_trace(
+                    graph_class(
+                        x=open_time,
+                        y=graph.y_data,
+                        **graph.plot_params,
+                    ),
+                    row=graph.figure_index, col=1,
+                )
 
-        fig.update_layout(
-            margin=dict(l=10, r=10, t=20, b=10),
-        )
+        fig.update_layout(margin=dict(l=10, r=10, t=20, b=10))
         if log_scale:
-            fig.layout.yaxis1.type = "log"
-            fig.layout.yaxis2.type = "log"
+            fig.layout.yaxis1.plot_type = "log"
+            fig.layout.yaxis2.plot_type = "log"
 
         fig.update_yaxes(tickformat=',.2f', visible=False, showticklabels=False, secondary_y=True)
         fig.layout.yaxis2.showgrid = False
@@ -263,8 +264,9 @@ def __plot_backtest_results(
 
         fig.add_annotation(
             text="<br>".join([
-                f"Wins: {wins}, Losses: {losses}, Win rate: {(win_rate * 100):.3f}%",
-                f"Largest win: {profit_array.max():.2f}, Largest loss: {profit_array.min():.2f}",
+                f"Wins: {wins}, Losses: {losses}, Win rate: {win_rate:.3%}",
+                f"Largest win: {profit_array.max():.{PROFIT_PRECISION}f}, "
+                f"Largest loss: {profit_array.min():.{PROFIT_PRECISION}f}",
             ]),
             align="left",
             xref="x domain", yref="y domain",
@@ -277,8 +279,8 @@ def __plot_backtest_results(
         total_profit = (final_balance - start_cash) / start_cash
         fig.add_annotation(
             text="<br>".join([
-                f"Final balance: {trader.balance.free:.3f} ({'+' if final_balance > start_cash else ''}{total_profit * 100:.3f}%)",
-                f"Total paid fee: {np.sum(entry_fee + exit_fee):.3f}"
+                f"Final balance: {trader.balance.free:.{MONEY_PRECISION}f} ({total_profit:+.{PROFIT_PRECISION}%})",
+                f"Total paid fee: {np.sum(entry_fee + exit_fee):.{FEE_PRECISION}f}"
             ]),
             align="left",
             xref="x domain", yref="y domain",
@@ -304,20 +306,22 @@ def run_backtest(
     candlestick_type=CandlestickType.LINE,
     extra_plots: List[Plot] = None,
 ):
+    from . import BACKTEST_LOGGER
+
     if not isinstance(strategy.trader, BacktestFuturesTrader):
         raise ValueError("Trader is not an instance of BacktestFuturesTrader!")
 
     candle_wrapper = Candles()
-    logger.info(f"Running backtest on {len(candles)} candles.")
-    for i in tqdm(range(1, len(candles))):
-        candles_head = candles[:i]
+    logging.getLogger(BACKTEST_LOGGER).info(f"Running backtest on {len(candles)} candles.")
+    for i in tqdm(range(len(candles))):
+        candles_head = candles[:i+1]
         candle_wrapper.next(candles_head)
         strategy(candle_wrapper)
         strategy.trader(candle_wrapper)
 
-    logger.info(
+    logging.getLogger(BACKTEST_LOGGER).info(
         f"Finished. Entered {len(strategy.trader.positions)} positions. "
-        f"Final balance: {strategy.trader.balance.free:.3f}"
+        f"Final balance: {strategy.trader.balance.free:.{MONEY_PRECISION}f}"
     )
 
     __plot_backtest_results(

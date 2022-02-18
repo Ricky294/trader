@@ -1,13 +1,15 @@
+from typing import Optional
+
 import numpy as np
 
 from trader.backtest import BacktestFuturesTrader, BacktestBot, OptimizedIndicator
 from trader.backtest.balance import BacktestBalance
-from trader.core.indicator import Indicator
-from trader.core.model.candles import Candles
 
+from trader.core.indicator import Indicator
+from trader.core.model import Position, Candles
 from trader.core.const.trade_actions import SELL, BUY, NONE
-from trader.core.enum import CandlestickType, Signal
-from trader.core.strategy import Strategy
+from trader.core.enum import CandlestickType
+from trader.core.strategy import SinglePositionStrategy
 
 
 class TestEntryIndicator(Indicator):
@@ -24,7 +26,7 @@ class TestEntryIndicator(Indicator):
         self.data = TestEntryIndicator.data_line[:candles.shape[0]]
 
 
-class TestStrategy(Strategy):
+class TestStrategy(SinglePositionStrategy):
 
     def __init__(
             self,
@@ -33,20 +35,18 @@ class TestStrategy(Strategy):
             entry_indicator: Indicator,
             trade_ratio: float,
             leverage: int,
+            **kwargs,
     ):
-        super().__init__(trader=trader)
+        super().__init__(symbol=symbol, trader=trader)
         self.entry_indicator = entry_indicator
-        self.symbol = symbol
         self.trade_ratio = trade_ratio
         self.leverage = leverage
 
-    def on_candle(self, candles: Candles):
-        position = self.trader.get_position(self.symbol)
-
+    def on_next(self, candles: Candles, position: Optional[Position]):
         self.entry_indicator(candles)
         signal = self.entry_indicator.latest_signal()
 
-        if position is None and signal is not Signal.NONE:
+        if position is None and signal is not NONE:
             latest_close = candles.latest_close_price
 
             stop_loss_price = (
@@ -58,7 +58,7 @@ class TestStrategy(Strategy):
 
             self.trader.create_position(
                 symbol=self.symbol,
-                money=self.trader.get_balance("USDT").free * self.trade_ratio,
+                money=self.trader.get_balance("USD").free * self.trade_ratio,
                 leverage=self.leverage,
                 side=signal,
                 take_profit_price=take_profit_price,
@@ -77,10 +77,14 @@ def test_backtest_trading():
         taker_fee_rate=0.0004,
     )
 
-    ind = OptimizedIndicator(TestEntryIndicator(), candles)
-    strategy = TestStrategy("XYZ", trader=trader, trade_ratio=0.5, leverage=1, entry_indicator=ind)
-
     bot = BacktestBot()
     bot.add_data(candles=candles)
-    bot.add_strategy(strategy=strategy)
+    bot.create_strategy_with_optimized_indicators(
+        strategy=TestStrategy,
+        symbol="XYZ",
+        entry_indicator=TestEntryIndicator(),
+        trader=trader,
+        trade_ratio=0.5,
+        leverage=1,
+    )
     bot.run(candlestick_type=CandlestickType.JAPANESE)
