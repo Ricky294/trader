@@ -1,7 +1,7 @@
 from typing import Optional, Union
 
 from trader.core.exception import PositionError
-from trader.core.enum import PositionStatus
+from trader.core.enum import PositionStatus, OrderType
 from trader.core.model import MarketOrder, StopMarketOrder, TakeProfitMarketOrder, LimitOrder, Candles
 from trader.core.util.trade import opposite_side
 
@@ -17,7 +17,7 @@ class BacktestOrderGroup:
         "entry_order",
         "stop_order",
         "take_profit_order",
-        "exit_order",
+        "close_order",
         "position",
     )
 
@@ -32,7 +32,7 @@ class BacktestOrderGroup:
         self.stop_order = stop_order
         self.take_profit_order = take_profit_order
         self.position: Optional[BacktestPosition] = None
-        self.exit_order: Optional[Union[MarketOrder, LimitOrder]] = None
+        self.close_order: Optional[Union[MarketOrder, LimitOrder]] = None
 
     def __call__(
             self,
@@ -79,6 +79,7 @@ class BacktestOrderGroup:
                 leverage=leverage,
             )
             self.status = PositionStatus.OPEN
+            self.entry_order = None
 
     def _exit_logic(
             self,
@@ -94,7 +95,7 @@ class BacktestOrderGroup:
             open_price=candles.latest_open_price,
             take_profit_order=self.take_profit_order,
             stop_order=self.stop_order,
-            exit_order=self.exit_order,
+            exit_order=self.close_order,
         )
 
         if filled_order is not None:
@@ -114,14 +115,16 @@ class BacktestOrderGroup:
                 maker_fee_rate=maker_fee_rate,
                 leverage=leverage,
             )
-
             self.status = PositionStatus.CLOSED
+            self.close_order = None
+            self.take_profit_order = None
+            self.stop_order = None
 
     def create_close_order(self, price: float = None):
         if self.status != PositionStatus.OPEN:
             raise PositionError("Can't create a position closing order because there isn't any open position!")
 
-        self.exit_order = (
+        self.close_order = (
             MarketOrder(
                 symbol=self.position.symbol,
                 side=opposite_side(self.position.side),
@@ -143,11 +146,11 @@ class BacktestOrderGroup:
         self.take_profit_order = None
 
     def cancel_close_order(self):
-        self.exit_order = None
+        self.close_order = None
 
     def cancel_orders(self):
         self.entry_order = None
-        self.exit_order = None
+        self.close_order = None
         self.stop_order = None
         self.take_profit_order = None
 

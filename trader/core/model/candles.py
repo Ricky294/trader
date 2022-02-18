@@ -35,6 +35,12 @@ class Candles:
         self.latest_close_price: Optional[float] = None
         self.latest_volume: Optional[float] = None
 
+    @classmethod
+    def with_data(cls, data: np.ndarray):
+        candles_ = cls()
+        candles_.next(data)
+        return candles_
+
     def next(self, candles: np.ndarray):
         self.array = candles
         self.latest_candle = candles[-1]

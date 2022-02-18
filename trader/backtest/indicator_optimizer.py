@@ -4,15 +4,15 @@ from trader.core.model import Candles
 
 class OptimizedIndicator(Indicator):
 
-    __slots__ = "__indicator"
+    __slots__ = "wrapped_indicator"
 
-    def __init__(self, indicator: Indicator, candles: Candles):
+    def __init__(self, candles: Candles, indicator: Indicator):
         super().__init__(*indicator.additional_lines)
         indicator(candles)
-        self.__indicator = indicator
+        self.precalculated = indicator
 
     def __call__(self, candles: Candles):
-        self.buy_signal = self.__indicator.buy_signal[:candles.shape[0]]
-        self.sell_signal = self.__indicator.sell_signal[:candles.shape[0]]
+        self.buy_signal = self.precalculated.buy_signal[:candles.shape[0]]
+        self.sell_signal = self.precalculated.sell_signal[:candles.shape[0]]
         for key in self.additional_lines:
-            self.__dict__[key] = self.__indicator.__dict__[key][:candles.shape[0]]
+            self.__dict__[key] = self.precalculated.__dict__[key][:candles.shape[0]]

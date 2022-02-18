@@ -1,22 +1,22 @@
 from trader.backtest import BacktestFuturesTrader, BacktestBot
 from trader.backtest.balance import BacktestBalance
+from trader.core.model import Position
 from trader.core.model.candles import Candles
 
 from trader.core.const.trade_actions import SELL, BUY
 from trader.core.enum import CandlestickType
-from trader.core.strategy import Strategy
+from trader.core.strategy import SinglePositionStrategy
 
 
-class TestStrategy(Strategy):
+class TestStrategy(SinglePositionStrategy):
 
     def __init__(self, symbol: str, trader: BacktestFuturesTrader, trade_ratio: float, leverage: int):
-        super().__init__(trader=trader)
-        self.symbol = symbol
+        super().__init__(symbol=symbol, trader=trader)
         self.trade_ratio = trade_ratio
         self.leverage = leverage
         self.trader.set_leverage(symbol=symbol, leverage=leverage)
 
-    def on_candle(self, candles: Candles):
+    def on_next(self, candles: Candles, position: Position):
         is_bullish_candle = candles.is_bullish()
 
         if is_bullish_candle:

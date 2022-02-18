@@ -7,6 +7,7 @@ from ..enum.order import OrderSide, OrderType, TimeInForce
 
 from ..util.common import round_down
 from ..util.trade import opposite_side, int_side_to_str
+from ... import MONEY_PRECISION
 
 
 class Order:
@@ -26,7 +27,11 @@ class Order:
     )
 
     def __str__(self):
-        return f"{self.type} (money: {self.money}, side: {int_side_to_str(self.side)})"
+        return (
+            f"Order (type: {self.type}, "
+            f"money: {self.money:.{MONEY_PRECISION}f}, "
+            f"side: {int_side_to_str(self.side)})"
+        )
 
     def __init__(
             self,

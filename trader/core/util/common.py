@@ -45,8 +45,11 @@ def round_down(number: Union[float, int, None], precision: int):
     return float(s[: s.find(".") + precision + 1])
 
 
-def remove_none(data: Union[dict]):
-    return {k: v for k, v in data.items() if v is not None and v != "None"}
+def remove_none(data):
+    if isinstance(data, dict):
+        return {k: v for k, v in data.items() if v is not None}
+
+    return [x for x in data if x is not None]
 
 
 def generate_ascii(start: int, end: int):

@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
+from logging import getLogger
 from typing import Union, Iterable, Optional
 
 import numpy as np
 import pandas as pd
+
 from crypto_data.binance.pd.extract import get_candles
 from crypto_data.binance.schema import OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, VOLUME, CLOSE_PRICE
 from crypto_data.enum.market import Market
@@ -10,7 +12,7 @@ from crypto_data.shared.candle_db import CandleDB
 
 from trader.core.exception import TraderException
 from trader.core.model import Candles
-from trader.core.strategy import Strategy
+from trader.core.strategy import Strategy, LIVE_STRATEGY_LOGGER, BACKTEST_STRATEGY_LOGGER
 
 
 class TradingBot(ABC):
@@ -21,6 +23,16 @@ class TradingBot(ABC):
 
     def add_strategy(self, strategy: Strategy):
         self.strategy = strategy
+
+    def __setup_logger(self, enable_logging: bool):
+        from trader.backtest.futures_trader import BacktestFuturesTrader
+        if isinstance(self.strategy.trader, BacktestFuturesTrader):
+            self.strategy.logger = getLogger(BACKTEST_STRATEGY_LOGGER)
+        else:
+            self.strategy.logger = getLogger(LIVE_STRATEGY_LOGGER)
+
+        self.strategy.logger.disabled = not enable_logging
+        self.strategy.logger.propagate = True
 
     def with_binance_data(
             self,
@@ -46,13 +58,14 @@ class TradingBot(ABC):
     @abstractmethod
     def _run(self, *args, **kwargs): ...
 
-    def run(self, *args, **kwargs):
+    def run(self, enable_logging=True, *args, **kwargs):
         if self.strategy is None or self.candles is None:
             raise TraderException(
                 "Unable to run bot.\n"
-                "Reason: self.strategy and self.candles must not be None.\n"
-                "Solution: Use add_data and add_strategy methods."
+                "Reason: 'self.strategy' and 'self.candles' must not be None.\n"
+                "Solution: Use 'add_data' and 'add_strategy' methods."
             )
+        self.__setup_logger(enable_logging)
         self._run(*args, **kwargs)
 
 

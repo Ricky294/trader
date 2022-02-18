@@ -83,4 +83,4 @@ def test_get_filled_first():
         take_profit_order=TakeProfitMarketOrder(symbol="", side=SELL, stop_price=160),
         stop_order=StopMarketOrder(symbol="", side=SELL, stop_price=110),
         exit_order=MarketOrder(symbol="", side=SELL, money=500),
-    ).type == "MARKET"
+    ).plot_type == "MARKET"

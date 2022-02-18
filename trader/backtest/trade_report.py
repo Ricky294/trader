@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
+from trader import MONEY_PRECISION
 from trader.core.model import Position
 from trader.core.const.candle_index import OPEN_TIME_INDEX
 from trader.core.util.common import Storable
@@ -105,12 +106,12 @@ class TradeReport(Storable):
                     [
                         self.wins,
                         self.losses,
-                        f"{self.biggest_win:.3f}",
-                        f"{self.biggest_loss:.3f}",
-                        f"{(self.win_rate * 100):.3f}%",
-                        f"{self.start_cash:.3f}",
-                        f"{self.end_cash:.3f}",
-                        f"{self.profit * 100:.3f}%",
+                        f"{self.biggest_win:.{MONEY_PRECISION}f}",
+                        f"{self.biggest_loss:.{MONEY_PRECISION}f}",
+                        f"{self.win_rate:.{MONEY_PRECISION}%}",
+                        f"{self.start_cash:.{MONEY_PRECISION}f}",
+                        f"{self.end_cash:.{MONEY_PRECISION}f}",
+                        f"{self.profit:.{MONEY_PRECISION}%}",
                     ]
                 ],
             ),
