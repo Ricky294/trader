@@ -16,12 +16,15 @@ class BinanceBot(TradingBot):
             raise ValueError("Trader is not an instance of BinanceFuturesTrader!")
         self.strategy = strategy
 
-    def _run(
+    def run(
             self,
             symbol: str,
             interval: str,
             market: Union[str, Market],
+            enable_logging=True,
     ):
+        self._check_strategy_and_candles()
+        self._setup_logger(enable_logging)
         candle_stream(
             symbol=symbol,
             interval=interval,

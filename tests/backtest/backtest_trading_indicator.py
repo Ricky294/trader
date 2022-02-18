@@ -2,10 +2,11 @@ from typing import Optional
 
 import numpy as np
 
-from trader.backtest import BacktestFuturesTrader, BacktestBot, OptimizedIndicator
+from trader.backtest import BacktestFuturesTrader, BacktestBot
 from trader.backtest.balance import BacktestBalance
 
 from trader.core.indicator import Indicator
+from trader.core.indicator.result import IndicatorResult
 from trader.core.model import Position, Candles
 from trader.core.const.trade_actions import SELL, BUY, NONE
 from trader.core.enum import CandlestickType
@@ -17,13 +18,16 @@ class TestEntryIndicator(Indicator):
     sell_line = np.array([0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0])
     data_line = np.array([0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0])
 
-    def __init__(self):
-        super().__init__("data")
-
     def __call__(self, candles: Candles):
-        self.buy_signal = TestEntryIndicator.buy_line[:candles.shape[0]]
-        self.sell_signal = TestEntryIndicator.sell_line[:candles.shape[0]]
-        self.data = TestEntryIndicator.data_line[:candles.shape[0]]
+        buy_signal = TestEntryIndicator.buy_line[:candles.shape[0]]
+        sell_signal = TestEntryIndicator.sell_line[:candles.shape[0]]
+        data = TestEntryIndicator.data_line[:candles.shape[0]]
+
+        return IndicatorResult(
+            buy_signal=buy_signal,
+            sell_signal=sell_signal,
+            data=data,
+        )
 
 
 class TestStrategy(SinglePositionStrategy):
@@ -43,8 +47,7 @@ class TestStrategy(SinglePositionStrategy):
         self.leverage = leverage
 
     def on_next(self, candles: Candles, position: Optional[Position]):
-        self.entry_indicator(candles)
-        signal = self.entry_indicator.latest_signal()
+        signal = self.entry_indicator(candles).latest_signal()
 
         if position is None and signal is not NONE:
             latest_close = candles.latest_close_price
@@ -87,4 +90,5 @@ def test_backtest_trading():
         trade_ratio=0.5,
         leverage=1,
     )
-    bot.run(candlestick_type=CandlestickType.JAPANESE)
+    bot.run()
+    bot.plot(candlestick_type=CandlestickType.JAPANESE)

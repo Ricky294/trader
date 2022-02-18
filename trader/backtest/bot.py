@@ -1,12 +1,14 @@
 import concurrent.futures
 from typing import List, Optional, Type, Iterable
 
+from trader.core.enum import CandlestickType
 from trader.core.indicator import Indicator
 from trader.core.interface import TradingBot
-from trader.core.enum import CandlestickType
 from trader.core.strategy import Strategy
 
-from . import BacktestFuturesTrader, Plot, run_backtest
+from .backtester import plot_backtest_results, run_backtest
+from .futures_trader import BacktestFuturesTrader
+from .plot import Plot
 
 
 class BacktestBot(TradingBot):
@@ -43,15 +45,27 @@ class BacktestBot(TradingBot):
             **optimized_kwargs,
         )
 
-    def _run(
+    def run(
             self,
-            log_scale: bool = False,
-            candlestick_type: CandlestickType = CandlestickType.LINE,
-            extra_plots: List[Plot] = None
+            enable_logging=False,
     ):
+        self._check_strategy_and_candles()
+        self._setup_logger(enable_logging)
         run_backtest(
             strategy=self.strategy,
             candles=self.candles,
+        )
+
+    def plot(
+            self,
+            log_scale=False,
+            candlestick_type=CandlestickType.LINE,
+            extra_plots: List[Plot] = None,
+    ):
+        plot_backtest_results(
+            candles=self.candles,
+            trader=self.strategy.trader,
+            start_cash=self.strategy.trader.start_balance.free,
             log_scale=log_scale,
             candlestick_type=candlestick_type,
             extra_plots=extra_plots,
@@ -59,6 +73,15 @@ class BacktestBot(TradingBot):
 
 
 class BacktestRunParams:
+
+    def __init__(
+            self,
+            enable_logging=False,
+    ):
+        self.enable_logging = enable_logging
+
+
+class BacktestPlotParams:
 
     def __init__(
             self,
@@ -73,15 +96,24 @@ class BacktestRunParams:
 
 def __run_bot_from_arg_list(args):
     bot: BacktestBot = args[0]
-    params: BacktestRunParams = args[1]
+    run_params: BacktestRunParams = args[1]
+    plot_params: BacktestPlotParams = args[2]
 
-    bot.run(**params.__dict__)
+    bot.run(**run_params.__dict__)
+    bot.plot(**plot_params.__dict__)
 
 
-def backtest_multiple_bot(bots: List[BacktestBot], params_list: List[BacktestRunParams]):
+def backtest_multiple_bot(
+        bots: List[BacktestBot],
+        run_params: List[BacktestRunParams],
+        plot_params: List[BacktestPlotParams],
+):
 
-    if len(bots) != len(params_list):
-        raise ValueError("Length of 'bots' differs from the length of 'params_list'.")
+    if len(bots) != len(run_params) != len(plot_params):
+        raise ValueError("Parameter lists has different lengths.")
 
     with concurrent.futures.ProcessPoolExecutor() as executor:
-        executor.map(__run_bot_from_arg_list, [(bot, params) for bot, params in zip(bots, params_list)])
+        executor.map(
+            __run_bot_from_arg_list,
+            [(bot, run_p, plot_p) for bot, run_p, plot_p in zip(bots, run_params, plot_params)]
+        )

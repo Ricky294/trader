@@ -23,7 +23,7 @@ from .plot import Plot
 from .. import PROFIT_PRECISION, MONEY_PRECISION, FEE_PRECISION, PRICE_PRECISION, QUANTITY_PRECISION
 
 
-def __plot_backtest_results(
+def plot_backtest_results(
         candles: Candles,
         start_cash: float,
         trader: BacktestFuturesTrader,
@@ -107,7 +107,11 @@ def __plot_backtest_results(
         ]
 
         if extra_plots is not None:
-            specs.extend([[{"type": graph.plot_type.lower()}] for graph in extra_plots if graph.figure_index > 2])
+            plots_to_create = len(set(plot.figure_index for plot in extra_plots if plot.figure_index > 2))
+            specs.extend([
+                [{"secondary_y": True}]
+                for _ in range(plots_to_create)
+            ])
 
         fig = make_subplots(
             rows=max_row, cols=1,
@@ -322,13 +326,4 @@ def run_backtest(
     logging.getLogger(BACKTEST_LOGGER).info(
         f"Finished. Entered {len(strategy.trader.positions)} positions. "
         f"Final balance: {strategy.trader.balance.free:.{MONEY_PRECISION}f}"
-    )
-
-    __plot_backtest_results(
-        candles=candle_wrapper,
-        trader=strategy.trader,
-        start_cash=strategy.trader.start_balance.free,
-        log_scale=log_scale,
-        candlestick_type=candlestick_type,
-        extra_plots=extra_plots,
     )

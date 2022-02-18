@@ -60,4 +60,5 @@ def test_backtest_trading():
     bot.add_data(candles=candles)
     bot.add_strategy(strategy=strategy)
 
-    bot.run(candlestick_type=CandlestickType.JAPANESE)
+    bot.run()
+    bot.plot(candlestick_type=CandlestickType.JAPANESE)
