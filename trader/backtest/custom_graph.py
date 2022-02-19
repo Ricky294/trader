@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class Plot:
+class CustomGraph:
 
     def __init__(
             self,

@@ -6,9 +6,10 @@ from trader.core.indicator import Indicator
 from trader.core.interface import TradingBot
 from trader.core.strategy import Strategy
 
-from .backtester import plot_backtest_results, run_backtest
+from .backtester import run_backtest
+from .custom_graph import CustomGraph
 from .futures_trader import BacktestFuturesTrader
-from .plot import Plot
+from .trade_figure import TradeResultFigure
 
 
 class BacktestBot(TradingBot):
@@ -58,18 +59,20 @@ class BacktestBot(TradingBot):
 
     def plot(
             self,
-            log_scale=False,
             candlestick_type=CandlestickType.LINE,
-            extra_plots: List[Plot] = None,
+            custom_graphs: Iterable[CustomGraph] = None,
     ):
-        plot_backtest_results(
+        tc = TradeResultFigure(
             candles=self.candles,
-            trader=self.strategy.trader,
+            positions=self.strategy.trader.positions,
             start_cash=self.strategy.trader.start_balance.free,
-            log_scale=log_scale,
-            candlestick_type=candlestick_type,
-            extra_plots=extra_plots,
         )
+        tc.add_capital_graph()
+        tc.add_profit_graph()
+        tc.add_candlestick_graph(type=candlestick_type)
+        if custom_graphs is not None:
+            tc.add_custom_graphs(custom_graphs)
+        tc.show()
 
 
 class BacktestRunParams:
@@ -87,7 +90,7 @@ class BacktestPlotParams:
             self,
             log_scale: bool = False,
             candlestick_type: CandlestickType = CandlestickType.LINE,
-            extra_plots: Optional[List[Plot]] = None,
+            extra_plots: Optional[List[CustomGraph]] = None,
     ):
         self.log_scale = log_scale
         self.candlestick_type = candlestick_type
