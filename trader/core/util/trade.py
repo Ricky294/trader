@@ -2,11 +2,37 @@ from typing import Union
 
 import numba
 import numpy as np
+import talib
 
 from trader.core.const.trade_actions import BUY, SELL
 from trader.core.enum import OrderSide
 
-from .common import generate_random_string, generate_ascii
+from .common import generate_random_string, generate_ascii, compare
+
+
+def talib_ma(type: str, period: int, data: np.ndarray) -> np.ndarray:
+    return getattr(talib, type)(data, timeperiod=period)
+
+
+def cross(left, logical_operator: str, right, /):
+    if logical_operator not in (">", "<", ">=", "<="):
+        raise ValueError("Logical operator must be '>', '<', '>=' or '<='.")
+
+    left_operator = logical_operator
+    if logical_operator == ">" or logical_operator == "<":
+        right_operator = logical_operator + "="
+    elif logical_operator == ">=" or logical_operator == "<=":
+        right_operator = logical_operator.replace("=", "")
+    else:
+        right_operator = logical_operator
+
+    if isinstance(right, np.ndarray) and isinstance(left, np.ndarray):
+        cross_array = (compare(left[1:], left_operator, right[1:])) & (compare(right[:-1], right_operator, left[:-1]))
+    elif isinstance(left, np.ndarray):
+        cross_array = (compare(left[1:], left_operator, right)) & (compare(right, right_operator, left[:-1]))
+    elif isinstance(right, np.ndarray):
+        cross_array = (compare(right[:-1], left_operator, left)) & (compare(left, right_operator, right[1:]))
+    return np.insert(cross_array, 0, False)
 
 
 def str_side_to_int(side: str):

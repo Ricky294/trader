@@ -1,16 +1,15 @@
-from typing import Optional
+from typing import List
 
 import numpy as np
 
 from trader.backtest import BacktestFuturesTrader, BacktestBot
 from trader.backtest.balance import BacktestBalance
 
-from trader.core.indicator import Indicator
-from trader.core.indicator.result import IndicatorResult
-from trader.core.model import Position, Candles
+from trader.core.indicator import Indicator, Result
+from trader.core.model import Candles, Order
 from trader.core.const.trade_actions import SELL, BUY, NONE
 from trader.core.enum import CandlestickType
-from trader.core.strategy import SinglePositionStrategy
+from trader.core.strategy import Strategy
 
 
 class TestEntryIndicator(Indicator):
@@ -23,14 +22,14 @@ class TestEntryIndicator(Indicator):
         sell_signal = TestEntryIndicator.sell_line[:candles.shape[0]]
         data = TestEntryIndicator.data_line[:candles.shape[0]]
 
-        return IndicatorResult(
+        return Result(
             buy_signal=buy_signal,
             sell_signal=sell_signal,
             data=data,
         )
 
 
-class TestStrategy(SinglePositionStrategy):
+class TestStrategy(Strategy):
 
     def __init__(
             self,
@@ -41,13 +40,16 @@ class TestStrategy(SinglePositionStrategy):
             leverage: int,
             **kwargs,
     ):
-        super().__init__(symbol=symbol, trader=trader)
+        super().__init__(trader=trader)
+        self.symbol = symbol
         self.entry_indicator = entry_indicator
         self.trade_ratio = trade_ratio
         self.leverage = leverage
 
-    def on_next(self, candles: Candles, position: Optional[Position]):
+    def on_next(self, candles: Candles):
         signal = self.entry_indicator(candles).latest_signal()
+
+        position = self.get_position(self.symbol)
 
         if position is None and signal is not NONE:
             latest_close = candles.latest_close_price
@@ -59,9 +61,9 @@ class TestStrategy(SinglePositionStrategy):
                 latest_close - 400 if signal == SELL else latest_close + 400
             )
 
-            self.trader.create_position(
+            self.create_position(
                 symbol=self.symbol,
-                money=self.trader.get_balance("USD").free * self.trade_ratio,
+                money=self.get_balance("USD").free * self.trade_ratio,
                 leverage=self.leverage,
                 side=signal,
                 take_profit_price=take_profit_price,

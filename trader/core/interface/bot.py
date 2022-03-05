@@ -12,17 +12,14 @@ from crypto_data.shared.candle_db import CandleDB
 
 from trader.core.exception import TraderException
 from trader.core.model import Candles
-from trader.core.strategy import Strategy, LIVE_STRATEGY_LOGGER, BACKTEST_STRATEGY_LOGGER
 
 
 class TradingBot(ABC):
 
     def __init__(self):
+        from trader.core.strategy import Strategy
         self.candles = Candles()
         self.strategy: Optional[Strategy] = None
-
-    def add_strategy(self, strategy: Strategy):
-        self.strategy = strategy
 
     def _check_strategy_and_candles(self):
         if self.strategy is None or self.candles is None:
@@ -33,7 +30,9 @@ class TradingBot(ABC):
             )
 
     def _setup_logger(self, enable_logging: bool):
-        from trader.backtest.futures_trader import BacktestFuturesTrader
+        from trader.core.strategy import BACKTEST_STRATEGY_LOGGER, LIVE_STRATEGY_LOGGER
+        from trader.backtest import BacktestFuturesTrader
+
         if isinstance(self.strategy.trader, BacktestFuturesTrader):
             self.strategy.logger = getLogger(BACKTEST_STRATEGY_LOGGER)
         else:

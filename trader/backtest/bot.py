@@ -1,5 +1,6 @@
+import asyncio
 import concurrent.futures
-from typing import List, Optional, Type, Iterable
+from typing import List, Optional, Type, Iterable, Union, Dict
 
 from trader.core.enum import CandlestickType
 from trader.core.indicator import Indicator
@@ -7,7 +8,7 @@ from trader.core.interface import TradingBot
 from trader.core.strategy import Strategy
 
 from .backtester import run_backtest
-from .custom_graph import CustomGraph
+from .custom_graph import CustomGraph, Graph
 from .futures_trader import BacktestFuturesTrader
 from .trade_figure import TradeResultFigure
 
@@ -53,14 +54,14 @@ class BacktestBot(TradingBot):
         self._check_strategy_and_candles()
         self._setup_logger(enable_logging)
         run_backtest(
-            strategy=self.strategy,
             candles=self.candles,
+            strategy=self.strategy,
         )
 
     def plot(
             self,
             candlestick_type=CandlestickType.LINE,
-            custom_graphs: Iterable[CustomGraph] = None,
+            custom_graphs: Iterable[Union[CustomGraph, Indicator]] = None,
     ):
         tc = TradeResultFigure(
             candles=self.candles,
@@ -70,8 +71,12 @@ class BacktestBot(TradingBot):
         tc.add_capital_graph()
         tc.add_profit_graph()
         tc.add_candlestick_graph(type=candlestick_type)
-        if custom_graphs is not None:
-            tc.add_custom_graphs(custom_graphs)
+
+        for custom_graph in custom_graphs:
+            if isinstance(custom_graph, CustomGraph):
+                tc.add_custom_graph(custom_graph)
+            elif isinstance(custom_graph, Indicator):
+                tc.add_indicator_graph(custom_graph)
         tc.show()
 
 

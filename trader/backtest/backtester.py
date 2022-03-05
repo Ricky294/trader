@@ -1,21 +1,18 @@
 import logging
 
 from tqdm import tqdm
-import numpy as np
 
 from trader import MONEY_PRECISION
+from trader.backtest import BacktestFuturesTrader
 from trader.core.strategy import Strategy
 from trader.core.model.candles import Candles
 
-from .futures_trader import BacktestFuturesTrader
-
 
 def run_backtest(
-    candles: np.ndarray,
+    candles: Candles,
     strategy: Strategy,
 ):
     from . import BACKTEST_LOGGER
-
     if not isinstance(strategy.trader, BacktestFuturesTrader):
         raise ValueError("Trader is not an instance of BacktestFuturesTrader!")
 

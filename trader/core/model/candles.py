@@ -51,7 +51,7 @@ class Candles:
         self.latest_close_price = float(self.latest_candle[CLOSE_PRICE_INDEX])
         self.latest_volume = float(self.latest_candle[VOLUME_INDEX])
 
-    def line(self, index: Union[int, OHLCV]):
+    def line(self, index: Union[int, OHLCV]) -> np.ndarray:
         return self.array.T[int(index)]
 
     def __getitem__(self, item):

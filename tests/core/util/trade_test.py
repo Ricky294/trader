@@ -1,8 +1,11 @@
+import numpy as np
+
 from trader.core.util.trade import (
     calculate_money_fee,
     reduce_money_with_fee,
     calculate_quantity_fee,
     reduce_quantity_with_fee,
+    cross,
 )
 
 
@@ -59,3 +62,23 @@ def test_reduce_quantity_with_fee():
     assert -0.98 == reduce_quantity_with_fee(quantity=-1, fee_rate=0.02)
 
     assert 4.98 == reduce_quantity_with_fee(quantity=5, fee_rate=0.004)
+
+
+def test_is_stop_loss_hit():
+    arr = np.array([50, 70, 75, 81, 69, 67, 72, 73, 59])
+    assert np.allclose(np.array([False, False, True, False, False, False, True, False, False]), cross(arr, ">", 70))
+    assert np.allclose(np.array([False, True, False, False, False, False, True, False, False]), cross(arr, ">=", 70))
+
+    assert np.allclose(np.array([False, False, False, False, True, False, False, False, True]), cross(arr, "<", 70))
+    assert np.allclose(np.array([False, False, False, False, True, False, False, False, True]), cross(arr, "<=", 70))
+
+    assert np.allclose(np.array([False, False, True, False, False, False, True, False, False]), cross(arr, ">", 70))
+    assert np.allclose(np.array([False, True, False, False, False, False, True, False, False]), cross(arr, ">=", 70))
+
+    arr2 = np.array([60, 80, 75, 70, 71, 55, 70, 74, 20])
+
+    assert np.allclose(np.array([False, False, False, True, False, True, False, False, True]), cross(arr, ">", arr2))
+    assert np.allclose(np.array([False, False, True, False, False, True, False, False, True]), cross(arr, ">=", arr2))
+
+    assert np.allclose(np.array([False, False, False, True, False, True, False, False, True]), cross(arr2, "<", arr))
+    assert np.allclose(np.array([False, False, True, False, False, True, False, False, True]), cross(arr2, "<=", arr))

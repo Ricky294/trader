@@ -3,8 +3,7 @@ from typing import Callable, Optional, Union, List
 
 from trader.core.model import Candles
 from trader.core.exception import PositionError, BalanceError
-from trader.core.enum import OrderSide
-from trader.core.enum.position_status import PositionStatus
+from trader.core.enum import OrderSide, TimeInForce, PositionStatus
 from trader.core.interface import FuturesTrader
 from trader.core.util.trade import create_orders
 from trader.core.util.common import remove_none
@@ -19,7 +18,7 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
 
     def __init__(
             self,
-            balance=BacktestBalance(asset="USD", amount=1_000),
+            balance: BacktestBalance,
             maker_fee_rate=0.0,
             taker_fee_rate=0.0,
     ):
@@ -58,7 +57,7 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
     def get_latest_price(self, symbol: str):
         return self.__candles.latest_close_price
 
-    def _cancel_orders(self, symbol: str):
+    def cancel_orders(self, symbol: str):
         if self.order_group is None:
             return []
 
@@ -71,7 +70,7 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
         self.order_group.cancel_orders()
         return orders
 
-    def _create_position(
+    def create_position(
             self,
             symbol: str,
             money: float,
@@ -108,26 +107,26 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
     def __is_in_position(self):
         return self.order_group is not None and self.order_group.is_in_position()
 
-    def _close_position_market(self, symbol: str):
+    def close_position_market(self, symbol: str):
         if not self.__is_in_position():
             raise PositionError("No position to close.")
 
         self.order_group.create_close_order()
         return self.order_group.close_order
 
-    def _close_position_limit(self, symbol: str, price: float):
+    def close_position_limit(self, symbol: str, price: float, time_in_force: Union[str, TimeInForce] = "GTC"):
         if not self.__is_in_position():
             raise PositionError("No position to close.")
 
         self.order_group.create_close_order(price=price)
         return self.order_group.close_order
 
-    def _get_balance(self, asset: str):
+    def get_balance(self, asset: str):
         if asset == self.balance.asset:
             return self.balance
         raise BalanceError(f"{asset} balance not found!")
 
-    def _get_open_orders(self, symbol: str):
+    def get_open_orders(self, symbol: str):
         if self.order_group is None:
             return []
 
@@ -138,9 +137,9 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
             self.order_group.take_profit_order,
         ))
 
-    def _get_position(self, symbol: str):
+    def get_position(self, symbol: str):
         if self.__is_in_position():
             return self.order_group.position
 
-    def _set_leverage(self, symbol: str, leverage: int):
+    def set_leverage(self, symbol: str, leverage: int):
         self._leverage = leverage

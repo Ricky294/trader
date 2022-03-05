@@ -1,15 +1,21 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Tuple
+from typing import Callable
 
-import numpy as np
+from trader.core.indicator import Result
 from trader.core.model import Candles
 
-from trader.core.util.common import Storable
+
+class SLTPResult(Result):
+
+    def __init__(self, take_profit_price: float, stop_loss_price: float):
+        self.take_profit_price = take_profit_price
+        self.stop_loss_price = stop_loss_price
 
 
-class SLTPIndicator(ABC, Callable, Storable):
+class SLTPIndicator(ABC, Callable):
+
     @abstractmethod
-    def __init__(self, *args, **data): ...
+    def __init__(self): ...
 
     @abstractmethod
-    def __call__(self, candles: Candles, side: int) -> Tuple[float, float]: ...
+    def __call__(self, candles: Candles) -> SLTPResult: ...

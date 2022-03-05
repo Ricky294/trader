@@ -3,6 +3,10 @@ numpy
 pandas
 python-binance
 plotly
+plotly-express
+dash
+dash-daq
+dash-bootstrap-components
 tqdm
 pyyaml
 numba

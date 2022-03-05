@@ -7,10 +7,9 @@ import plotly.graph_objects as go
 from trader import MONEY_PRECISION
 from trader.core.model import Position
 from trader.core.const.candle_index import OPEN_TIME_INDEX
-from trader.core.util.common import Storable
 
 
-class TradeReport(Storable):
+class TradeReport:
 
     def __init__(
             self,
