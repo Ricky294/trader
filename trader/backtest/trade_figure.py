@@ -10,6 +10,7 @@ from plotly.subplots import make_subplots
 from trader import PROFIT_PRECISION, MONEY_PRECISION, FEE_PRECISION, PRICE_PRECISION, QUANTITY_PRECISION
 from trader.core.model.candles import Candles
 from trader.core.const.trade_actions import BUY
+from trader.core.indicator import Indicator
 from trader.core.enum import CandlestickType
 from trader.core.util.np import assign_where_not_zero, map_match
 from trader.core.util.trade import to_heikin_ashi
@@ -39,7 +40,12 @@ class TradeResultFigure:
             start_cash: float,
             positions: Iterable[BacktestPosition],
     ):
+        self.candles = candles
+        self.start_cash = start_cash
+
         self.graph_objects: List[dict] = []
+        self.annotations: List[dict] = []
+
         self.open_time = candles.open_times()
         self.open_price = candles.open_prices()
         self.high_price = candles.high_prices()
@@ -100,6 +106,7 @@ class TradeResultFigure:
     def add_capital_graph(
             self,
             fee=True,
+            annotation=True,
     ):
         self.__graph_counter += 1
         self.graph_objects.append(
@@ -129,10 +136,29 @@ class TradeResultFigure:
                 )
             )
 
+        if annotation:
+            final_balance = float(self.capital[-1])
+            total_profit = (final_balance - self.start_cash) / self.start_cash
+            self.annotations.append(
+                dict(
+                    text="<br>".join([
+                        f"Final balance: {final_balance:.{MONEY_PRECISION}f} ({total_profit:+.{PROFIT_PRECISION}%})",
+                        f"Total paid fee: {self.fee[-1]:.{FEE_PRECISION}f}"
+                    ]),
+                    align="left",
+                    xref="x domain", yref="y domain",
+                    font=dict(
+                        size=8,
+                    ),
+                    x=0.005, y=0.99, showarrow=False,
+                    row=self.__graph_counter, col=1,
+                )
+            )
+
         self.capital_graph = True
         self.capital_graph_number = self.__graph_counter
 
-    def add_profit_graph(self):
+    def add_profit_graph(self, annotation=True):
         def log(data):
             data[data == 0.0] = np.nan
             log_data = np.log(np.absolute(data)) * 3
@@ -176,12 +202,38 @@ class TradeResultFigure:
             )
         )
 
+        if annotation:
+            number_of_wins = (self.profit > 0).sum()
+            number_of_losses = (self.profit < 0).sum()
+            win_rate = number_of_wins / (number_of_wins + number_of_losses)
+
+            losses = self.profit[self.profit < 0]
+            wins = self.profit[self.profit > 0]
+
+            avg_win_loss = (wins.sum() + losses.sum()) / len(self.profit[self.profit != 0])
+            self.annotations.append(
+                dict(
+                    text="<br>".join([
+                        f"Wins: {number_of_wins}, Losses: {number_of_losses}, Win rate: {win_rate:+.3%}",
+                        f"Largest win: {self.profit.max():+.{PROFIT_PRECISION}f}, "
+                        f"Largest loss: {self.profit.min():.{PROFIT_PRECISION}f}",
+                        f"Average win/loss: {avg_win_loss:+.{PROFIT_PRECISION}f}",
+                    ]),
+                    align="left",
+                    xref="x domain", yref="y domain",
+                    font=dict(size=8),
+                    x=0.005, y=0.99, showarrow=False,
+                    row=self.__graph_counter, col=1,
+                )
+            )
+
         self.profit_graph = True
         self.profit_graph_number = self.__graph_counter
 
     def add_candlestick_graph(
             self,
             type=CandlestickType.LINE,
+            annotation=True,
     ):
         self.__graph_counter += 1
 
@@ -219,7 +271,7 @@ class TradeResultFigure:
                     trace=go.Scatter(
                         x=self.open_time,
                         y=self.close_price,
-                        marker={"color": "#444"},
+                        marker=dict(color="#444"),
                         name="Close prices",
                     ),
                     row=self.__graph_counter, col=1,
@@ -236,7 +288,9 @@ class TradeResultFigure:
                     name="Entry",
                     mode="markers",
                     marker={"color": "#3d8f6d", "symbol": "triangle-up"},
-                    customdata=self.__create_custom_data(self.entry_price, self.side, self.money, self.quantity, self.entry_fee),
+                    customdata=self.__create_custom_data(
+                        self.entry_price, self.side, self.money, self.quantity, self.entry_fee
+                    ),
                     hovertemplate="<br>".join(
                         self.__create_hover_template(
                             ["Price", "Side", "Money", "Quantity", "Fee"],
@@ -290,30 +344,80 @@ class TradeResultFigure:
             )
         )
 
-        self.candlestick_graph = True
-        self.candlestick_graph_number = self.__graph_counter
-
-    def add_custom_graphs(
-            self,
-            graphs: Iterable[CustomGraph],
-    ):
-        for graph in graphs:
-            graph_class = getattr(go, graph.plot_type.capitalize())
-
-            self.graph_objects.append(
+        if annotation:
+            self.annotations.append(
                 dict(
-                    trace=graph_class(
-                        x=self.open_time,
-                        y=graph.y_data,
-                        **graph.plot_params,
-                    ),
-                    row=graph.figure_index, col=1,
+                    text="<br>".join([
+                        f"ATH: {self.candles.ath():.{PRICE_PRECISION}f}",
+                        f"ATL: {self.candles.atl():.{PRICE_PRECISION}f}",
+                    ]),
+                    align="left",
+                    xref="x domain", yref="y domain",
+                    font=dict(size=8),
+                    x=0.005, y=0.99, showarrow=False,
+                    row=self.__graph_counter, col=1,
+
                 )
             )
 
+        self.candlestick_graph = True
+        self.candlestick_graph_number = self.__graph_counter
+
+    def add_custom_graph(
+            self,
+            graph: CustomGraph,
+    ):
+        graph_class = getattr(go, graph.plot_type.capitalize())
+
+        self.graph_objects.append(
+            dict(
+                trace=graph_class(
+                    x=self.open_time,
+                    y=graph.y_data,
+                    **graph.plot_params,
+                ),
+                row=graph.figure_index, col=1,
+            )
+        )
+
+    def add_indicator_graph(self, indicator: Indicator):
+        result = indicator(candles=self.candles)
+
+        figure_number = None
+        for ind in result.__dict__.keys():
+            if "ma" in ind.lower():
+                figure_number = self.candlestick_graph_number
+                break
+
+        if figure_number is None:
+            self.__graph_counter += 1
+            figure_number = self.__graph_counter
+
+        for name, val in result.__dict__.items():
+            if isinstance(val, np.ndarray):
+                self.add_custom_graph(
+                    CustomGraph(
+                        figure_index=figure_number,
+                        plot_type="scatter",
+                        y_data=val,
+                        plot_params=dict(
+                            name=name.upper().replace("_", " "),
+                        )
+                    )
+                )
+            elif "limit" in name and isinstance(val, (float, int)):
+                self.add_custom_graph(
+                    CustomGraph(
+                        figure_index=figure_number,
+                        plot_type="scatter",
+                        y_data=np.full(len(self.candles), val),
+                        plot_params=dict(
+                            name=name.upper().replace("_", " "),
+                        )
+                    )
+                )
+
     def show(self):
-        from . import BACKTEST_LOGGER
-        logging.getLogger(BACKTEST_LOGGER).info("Plotting results.")
 
         number_of_plots = len(set(graph["row"] for graph in self.graph_objects))
 
@@ -346,7 +450,13 @@ class TradeResultFigure:
         for graph_object in self.graph_objects:
             fig.add_trace(**graph_object)
 
+        for annotation in self.annotations:
+            fig.add_annotation(**annotation)
+
         fig.update_xaxes(rangeslider={'visible': False}, row=self.candlestick_graph_number, col=1)
         fig.update_layout(margin=dict(l=10, r=10, t=20, b=10))
         fig.update_yaxes(tickformat=',.2f', visible=False, showticklabels=False, secondary_y=True)
+
+        from . import BACKTEST_LOGGER
+        logging.getLogger(BACKTEST_LOGGER).info("Plotting results.")
         fig.show()

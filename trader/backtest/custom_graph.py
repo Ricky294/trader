@@ -1,4 +1,13 @@
+from enum import Enum
+
 import numpy as np
+
+
+class Graph(Enum):
+    CAPITAL = "CAPITAL"
+    PROFIT = "PROFIT"
+    CANDLESTICK = "CANDLESTICK"
+    NEW = "NEW"
 
 
 class CustomGraph:

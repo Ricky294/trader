@@ -1,9 +1,12 @@
 import json
-import logging
 import operator
 import os
 import pathlib
-from logging import Logger
+import re
+
+import importlib
+import inspect
+from abc import ABCMeta
 
 try:
     import cPickle as pickle
@@ -74,6 +77,7 @@ logical_operators = {
     ">=": operator.ge,
     "<=": operator.le,
     "==": operator.eq,
+    "!=": operator.ne,
 }
 
 
@@ -116,24 +120,46 @@ def save_object(obj, filename):
         pickle.dump(obj, outp, pickle.HIGHEST_PROTOCOL)
 
 
-class Storable:
+def split_by_capital(txt: str):
+    return (c for c in re.split(r'([A-Z][a-z]*\d*)', txt) if c)
 
-    def save_object(self, filename):
-        save_object(self, filename=filename)
 
-    def log(self, logger: Logger, level=logging.INFO):
-        logger.log(level=level, msg=self.__str__())
+def space_by_capital(txt: str):
+    return " ".join(split_by_capital(txt))
 
-    def dict(self):
-        mro = type(self).mro()[0]
 
-        object_details = dict(
-            module=".".join(mro.__dict__["__module__"].split(".")[:-1]),
-            name=mro.__name__,
-            params=self.__dict__,
-        )
+def get_concrete_class_init_params2(module_name: str, module_package: str = None):
+    module = importlib.import_module(name=module_name, package=module_package)
 
-        return object_details
+    concrete_strategies = {
+        name: value
+        for name, value in module.__dict__.items()
+        if isinstance(value, ABCMeta) and not inspect.isabstract(value)
+    }
+    concrete_strategy_init_params = {
+        key: [
+            get_parameter_info(param)
+            for param in inspect.signature(value.__init__).parameters.values()
+            if param.name not in ("self", "args", "kwargs")
+        ]
+        for key, value in concrete_strategies.items()
+    }
 
-    def __str__(self):
-        return str(self.dict())
+    return concrete_strategy_init_params
+
+
+def get_parameter_info(param: inspect.Parameter):
+    annotation_split = str(param.annotation).split("'")
+    if len(annotation_split) == 1:
+        annotation = annotation_split[0]
+    else:
+        annotation = annotation_split[1]
+
+    if annotation == "inspect._empty":
+        annotation = "typing.Any"
+
+    default = str(param.default)
+    if default in ("None", "<class 'inspect._empty'>"):
+        default = ''
+
+    return tuple((annotation, default))

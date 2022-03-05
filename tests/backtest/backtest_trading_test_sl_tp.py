@@ -1,22 +1,22 @@
 from trader.backtest import BacktestFuturesTrader, BacktestBot
 from trader.backtest.balance import BacktestBalance
-from trader.core.model import Position
 from trader.core.model.candles import Candles
 
 from trader.core.const.trade_actions import SELL, BUY
 from trader.core.enum import CandlestickType
-from trader.core.strategy import SinglePositionStrategy
+from trader.core.strategy import Strategy
 
 
-class TestStrategy(SinglePositionStrategy):
+class TestStrategy(Strategy):
 
     def __init__(self, symbol: str, trader: BacktestFuturesTrader, trade_ratio: float, leverage: int):
-        super().__init__(symbol=symbol, trader=trader)
+        super().__init__(trader=trader)
+        self.symbol = symbol
         self.trade_ratio = trade_ratio
         self.leverage = leverage
-        self.trader.set_leverage(symbol=symbol, leverage=leverage)
+        self.set_leverage(symbol=symbol, leverage=leverage)
 
-    def on_next(self, candles: Candles, position: Position):
+    def on_next(self, candles: Candles):
         is_bullish_candle = candles.is_bullish()
 
         if is_bullish_candle:
@@ -24,7 +24,7 @@ class TestStrategy(SinglePositionStrategy):
         else:
             signal = SELL
 
-        if self.trader.get_position(self.symbol) is None:
+        if self.get_position(self.symbol) is None:
             latest_close = candles.latest_close_price
 
             stop_loss_price = (
@@ -34,9 +34,9 @@ class TestStrategy(SinglePositionStrategy):
                 latest_close - 400 if signal == SELL else latest_close + 400
             )
 
-            self.trader.create_position(
+            self.create_position(
                 symbol=self.symbol,
-                money=self.trader.get_balance("USDT").free * self.trade_ratio,
+                money=self.get_balance("USD").free * self.trade_ratio,
                 leverage=self.leverage,
                 side=signal,
                 take_profit_price=take_profit_price,

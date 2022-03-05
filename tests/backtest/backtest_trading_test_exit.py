@@ -5,13 +5,13 @@ from trader.core.interface import FuturesTrader
 from trader.core.model import Order, Position, Candles, Balance
 from trader.core.const.trade_actions import SELL, BUY
 from trader.core.enum import CandlestickType
-from trader.core.strategy import ManagedSinglePositionStrategy
+from trader.core.strategy import SinglePositionStrategy
 
 
-class TestExitStrategy(ManagedSinglePositionStrategy):
+class TestExitStrategy(SinglePositionStrategy):
 
     def __init__(self, symbol: str, trader: FuturesTrader, trade_ratio: float, leverage: int):
-        super().__init__(trader=trader, symbol=symbol)
+        super().__init__(symbol=symbol, trader=trader)
         self.trade_ratio = trade_ratio
         self.leverage = leverage
 
@@ -37,14 +37,14 @@ class TestExitStrategy(ManagedSinglePositionStrategy):
         is_bullish_candle = candles.is_bullish()
 
         if (position.side == SELL and is_bullish_candle) or (position.side == BUY and not is_bullish_candle):
-            self.trader.close_position_market(self.symbol)
+            self.close_position_market(self.symbol)
 
     def not_in_position(self, candles: Candles):
         signal = BUY if candles.is_bullish() else SELL
-        self.trader.cancel_orders(self.symbol)
-        self.trader.create_position(
+        self.cancel_orders(self.symbol)
+        self.create_position(
             symbol=self.symbol,
-            money=self.trader.get_balance("USD").free * self.trade_ratio,
+            money=self.get_balance("USD").free * self.trade_ratio,
             side=signal,
             leverage=self.leverage,
         )
