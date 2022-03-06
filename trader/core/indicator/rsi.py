@@ -20,6 +20,38 @@ class RSIResult(Result):
         self.upper_limit = upper_limit
         self.lower_limit = lower_limit
 
+    def above50(self) -> np.ndarray:
+        """
+        True where RSI is above 50.
+
+        :return: bool numpy array
+        """
+        return self.rsi > 50.0
+
+    def below50(self) -> np.ndarray:
+        """
+        True where RSI is below 50.
+
+        :return: bool numpy array
+        """
+        return self.rsi < 50.0
+
+    def cross_above50(self) -> np.ndarray:
+        """
+        True where RSI crosses above 50.
+
+        :return: bool numpy array
+        """
+        return cross(self.rsi, ">", 50.0)
+
+    def cross_below50(self) -> np.ndarray:
+        """
+        True where RSI crosses below 50.
+
+        :return: bool numpy array
+        """
+        return cross(self.rsi, "<", 50.0)
+
     def overbought(self) -> np.ndarray:
         """
         True where RSI is greater than upper limit.

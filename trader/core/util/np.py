@@ -2,8 +2,8 @@ from typing import Union, Iterable
 
 import numpy as np
 
-from ..enum import OHLCV
-from ..model import Candles
+from trader.core.enum import OHLCV
+from trader.core.model import Candles
 
 
 def map_match(src, tar):
@@ -51,3 +51,15 @@ def assign_where_not_zero(arr, assign):
     arr_copy[arr_copy != 0.0] = assign
 
     return arr_copy
+
+
+def above_avg_difference(arr: np.ndarray, period: int, multiplier: float):
+    slid_arr_p11 = np.lib.stride_tricks.sliding_window_view(arr, (period+1,))
+
+    avg_p10 = np.average(slid_arr_p11[:, 0:period], axis=-1)
+    next_is_double_in_avg = (avg_p10 * multiplier) <= slid_arr_p11[:, period]
+
+    padding = np.full((10,), False)
+
+    ret = np.concatenate((padding, next_is_double_in_avg))
+    return ret
