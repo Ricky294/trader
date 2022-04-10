@@ -1,15 +1,11 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from typing import Callable
 
-from trader.core.indicator import Result
-from trader.core.model import Candles
+from trader_data.core.model import Candles
 
-
-class SLTPResult(Result):
-
-    def __init__(self, take_profit_price: float, stop_loss_price: float):
-        self.take_profit_price = take_profit_price
-        self.stop_loss_price = stop_loss_price
+from trader.core.enum import OrderSide
 
 
 class SLTPIndicator(ABC, Callable):
@@ -18,4 +14,4 @@ class SLTPIndicator(ABC, Callable):
     def __init__(self): ...
 
     @abstractmethod
-    def __call__(self, candles: Candles) -> SLTPResult: ...
+    def __call__(self, candles: Candles, side: str | int | OrderSide): ...

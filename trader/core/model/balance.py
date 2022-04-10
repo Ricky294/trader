@@ -1,4 +1,4 @@
-from trader import MONEY_PRECISION
+from trader.config import MONEY_PRECISION
 from trader.core.exception import BalanceError
 
 

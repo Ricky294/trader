@@ -1,13 +1,13 @@
-from typing import Union
+from __future__ import annotations
 
-from ..const.trade_actions import BUY as TA_BUY
-from ..const.trade_actions import SELL as TA_SELL
+from trader.core.const.trade_actions import BUY as TA_BUY
+from trader.core.const.trade_actions import SELL as TA_SELL
 
-from ..enum.order import OrderSide, OrderType, TimeInForce
+from trader.core.enum import OrderSide, OrderType, TimeInForce
 
-from ..util.common import round_down
-from ..util.trade import opposite_side, int_side_to_str
-from ... import MONEY_PRECISION
+from trader.core.util.common import round_down
+from trader.core.util.trade import opposite_side, int_side_to_str
+from trader.config import MONEY_PRECISION
 
 
 class Order:
@@ -24,6 +24,8 @@ class Order:
         "close_position",
         "time_in_force",
         "reduce_only",
+        "activation_price",
+        "trailing_rate",
     )
 
     def __str__(self):
@@ -36,8 +38,8 @@ class Order:
     def __init__(
             self,
             symbol: str,
-            type: Union[OrderType, str],
-            side: Union[OrderSide, str, int],
+            type: OrderType | str,
+            side: OrderSide | str | int,
             money: float = None,
             order_id: int = None,
             status: str = None,
@@ -46,6 +48,8 @@ class Order:
             close_position=False,
             time_in_force: str = None,
             reduce_only=False,
+            activation_price: float = None,
+            trailing_rate: float = None,
     ):
         if isinstance(side, str):
             if side.upper() in ("BUY", "LONG"):
@@ -64,6 +68,8 @@ class Order:
         self.money = money
         self.price = price
         self.stop_price = stop_price
+        self.trailing_rate = trailing_rate
+        self.activation_price = activation_price
         self.close_position = close_position
         self.time_in_force = time_in_force
         self.reduce_only = reduce_only
@@ -93,6 +99,10 @@ class Order:
             order["closePosition"] = str(self.close_position).lower()
         if self.reduce_only:
             order["reduceOnly"] = str(self.reduce_only).lower()
+        if self.activation_price is not None:
+            order["activationPrice"] = float(self.activation_price)
+        if self.trailing_rate is not None:
+            order["callbackRate"] = float(self.trailing_rate)
         return order
 
     @staticmethod
@@ -121,13 +131,21 @@ class Order:
                 side=data["side"],
                 stop_price=float(data["stopPrice"]),
             )
+        elif order_type == OrderType.TAKE_PROFIT_MARKET:
+            return TrailingStopMarketOrder(
+                symbol=data["symbol"],
+                side=data["side"],
+                activation_price=float(data["activationPrice"]),
+                trailing_rate=float(data["callbackRate"]),
+
+            )
         else:
             raise ValueError(f"Unsupported order type: {order_type}")
 
     @staticmethod
     def market(
             symbol: str,
-            side: Union[OrderSide, str, int],
+            side: OrderSide | str | int,
             money: float,
             reduce_only=False,
             order_id=None,
@@ -145,10 +163,10 @@ class Order:
     @staticmethod
     def limit(
             symbol: str,
-            side: Union[OrderSide, str, int],
+            side: OrderSide | str | int,
             money: float,
             price: float,
-            time_in_force: Union[TimeInForce, str] = "GTC",
+            time_in_force: TimeInForce | str = "GTC",
             reduce_only=False,
             order_id=None,
             status: str = None,
@@ -167,7 +185,7 @@ class Order:
     @staticmethod
     def stop_limit(
             symbol: str,
-            side: Union[OrderSide, str, int],
+            side: OrderSide | str | int,
             price: float,
             stop_price: float,
             order_id=None,
@@ -185,7 +203,7 @@ class Order:
     @staticmethod
     def take_profit_limit(
             symbol: str,
-            side: Union[OrderSide, str, int],
+            side: OrderSide | str | int,
             price: float,
             stop_price: float,
             order_id=None,
@@ -203,7 +221,7 @@ class Order:
     @staticmethod
     def stop_market(
             symbol: str,
-            side: Union[OrderSide, str, int],
+            side: OrderSide | str | int,
             stop_price: float,
             order_id=None,
             status: str = None,
@@ -219,7 +237,7 @@ class Order:
     @staticmethod
     def take_profit_market(
             symbol: str,
-            side: Union[OrderSide, str, int],
+            side: OrderSide | str | int,
             stop_price: float,
             order_id=None,
             status: str = None,
@@ -232,13 +250,57 @@ class Order:
             status=status
         )
 
+    @staticmethod
+    def trailing_stop_market_order(
+            symbol: str,
+            side: OrderSide | str | int,
+            trailing_rate: float,
+            activation_price: float = None,
+            order_id=None,
+            status: str = None,
+            reduce_only=True,
+    ):
+        return TrailingStopMarketOrder(
+            symbol=symbol,
+            side=side,
+            trailing_rate=trailing_rate,
+            activation_price=activation_price,
+            order_id=order_id,
+            status=status,
+            reduce_only=reduce_only,
+        )
+
+
+class TrailingStopMarketOrder(Order):
+
+    def __init__(
+            self,
+            symbol: str,
+            side: OrderSide | str | int,
+            trailing_rate: float,
+            activation_price: float = None,
+            order_id=None,
+            status: str = None,
+            reduce_only=True,
+    ):
+        super().__init__(
+            symbol=symbol,
+            type=OrderType.TRAILING_STOP_MARKET,
+            side=side,
+            trailing_rate=trailing_rate,
+            activation_price=activation_price,
+            order_id=order_id,
+            status=status,
+            reduce_only=reduce_only,
+        )
+
 
 class MarketOrder(Order):
 
     def __init__(
             self,
             symbol: str,
-            side: Union[OrderSide, str, int],
+            side: OrderSide | str | int,
             money: float,
             order_id=None,
             status: str = None,
@@ -251,7 +313,7 @@ class MarketOrder(Order):
             money=money,
             reduce_only=reduce_only,
             order_id=order_id,
-            status=status
+            status=status,
         )
 
 
@@ -260,12 +322,12 @@ class LimitOrder(Order):
     def __init__(
             self,
             symbol: str,
-            side: Union[OrderSide, str, int],
+            side: OrderSide | str | int,
             money: float,
             price: float,
             order_id=None,
             status: str = None,
-            time_in_force: Union[str, TimeInForce] = "GTC",
+            time_in_force: str | TimeInForce = "GTC",
             reduce_only=False,
     ):
 
@@ -292,7 +354,7 @@ class TakeProfitMarketOrder(Order):
     def __init__(
             self,
             symbol: str,
-            side: Union[OrderSide, str, int],
+            side: OrderSide | str | int,
             stop_price: float,
             order_id=None,
             status: str = None,
@@ -313,7 +375,7 @@ class TakeProfitLimitOrder(Order):
     def __init__(
             self,
             symbol: str,
-            side: Union[OrderSide, str, int],
+            side: OrderSide | str | int,
             price: float,
             stop_price: float,
             order_id=None,
@@ -335,7 +397,7 @@ class StopMarketOrder(Order):
     def __init__(
             self,
             symbol: str,
-            side: Union[OrderSide, str, int],
+            side: OrderSide | str | int,
             stop_price: float,
             order_id=None,
             status: str = None,
@@ -356,7 +418,7 @@ class StopLimitOrder(Order):
     def __init__(
             self,
             symbol: str,
-            side: Union[OrderSide, str, int],
+            side: OrderSide | str | int,
             price: float,
             stop_price: float,
             order_id=None,

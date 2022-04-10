@@ -1,8 +1,16 @@
-from typing import Optional, Union
+from __future__ import annotations
+
+from trader_data.core.model import Candles
 
 from trader.core.exception import PositionError
-from trader.core.enum import PositionStatus, OrderType
-from trader.core.model import MarketOrder, StopMarketOrder, TakeProfitMarketOrder, LimitOrder, Candles
+from trader.core.enum import PositionStatus
+from trader.core.model import (
+    MarketOrder,
+    StopMarketOrder,
+    TakeProfitMarketOrder,
+    LimitOrder,
+    TrailingStopMarketOrder
+)
 from trader.core.util.trade import opposite_side
 
 from .balance import BacktestBalance
@@ -17,22 +25,25 @@ class BacktestOrderGroup:
         "entry_order",
         "stop_order",
         "take_profit_order",
+        "trailing_stop_order",
         "close_order",
         "position",
     )
 
     def __init__(
             self,
-            entry_order: Union[MarketOrder, LimitOrder],
+            entry_order: MarketOrder | LimitOrder,
             stop_order: StopMarketOrder = None,
             take_profit_order: TakeProfitMarketOrder = None,
+            trailing_stop_order: TrailingStopMarketOrder = None,
     ):
-        self.status = PositionStatus.NONE
+        self.status = PositionStatus.CREATED
         self.entry_order = entry_order
         self.stop_order = stop_order
         self.take_profit_order = take_profit_order
-        self.position: Optional[BacktestPosition] = None
-        self.close_order: Optional[Union[MarketOrder, LimitOrder]] = None
+        self.trailing_stop_order = trailing_stop_order
+        self.position: BacktestPosition | None = None
+        self.close_order: MarketOrder | LimitOrder | None = None
 
     def __call__(
             self,
@@ -42,7 +53,7 @@ class BacktestOrderGroup:
             maker_fee_rate: float,
             taker_fee_rate: float,
     ):
-        if self.status == PositionStatus.NONE:
+        if self.status == PositionStatus.CREATED:
             self._entry_logic(
                 candles=candles,
                 balance=balance,
@@ -94,6 +105,7 @@ class BacktestOrderGroup:
             low_price=candles.latest_low_price,
             open_price=candles.latest_open_price,
             take_profit_order=self.take_profit_order,
+            trailing_stop_order=self.trailing_stop_order,
             stop_order=self.stop_order,
             exit_order=self.close_order,
         )
@@ -107,7 +119,7 @@ class BacktestOrderGroup:
                 price = candles.latest_close_price
 
             self.position.close(
-                time=int(candles.latest_open_time),
+                time=candles.latest_open_time,
                 price=price,
                 balance=balance,
                 order=filled_order,
@@ -153,6 +165,3 @@ class BacktestOrderGroup:
         self.close_order = None
         self.stop_order = None
         self.take_profit_order = None
-
-    def is_in_position(self):
-        return self.status == PositionStatus.OPEN

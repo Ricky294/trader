@@ -1,18 +1,52 @@
 import numpy as np
 import talib
 
-from trader.core.indicator import Indicator, Result
-from trader.core.model import Candles
-from trader.core.util.trade import cross
+from trader_data.core.model import Candles
+
+from trader.core.indicator import Indicator
+from trader.core.util.vectorized.trade import cross
 
 
-class DMIResult(Result):
+class DMIIndicator(Indicator):
+    """Directional Movement Index"""
 
-    def __init__(self, adx: np.ndarray, plus_di: np.ndarray, minus_di: np.ndarray, volatility_limit: float):
-        self.adx = adx
-        self.plus_di = plus_di
-        self.minus_di = minus_di
+    color = {"adx": "#2a2e39", "plus_di": "#4caf50", "minus_di": "#f23645"}
+
+    def __init__(self, adx_period=14, plus_di_period=14, minus_di_period=14, volatility_limit=25.0):
+        self.adx_period = adx_period
+        self.plus_di_period = plus_di_period
+        self.minus_di_period = minus_di_period
         self.volatility_limit = volatility_limit
+
+    def __call__(self, candles: Candles):
+        """
+        Calculates Directional Moving Index
+
+        :param candles: Input data for indicator.
+
+        :return: DMIResult - adx, minus_di, plus_di
+        """
+
+        self.adx = talib.ADX(
+            candles.high_prices,
+            candles.low_prices,
+            candles.close_prices,
+            self.adx_period
+        )
+
+        self.plus_di = talib.PLUS_DI(
+            candles.high_prices,
+            candles.low_prices,
+            candles.close_prices,
+            self.plus_di_period,
+        )
+
+        self.minus_di = talib.MINUS_DI(
+            candles.high_prices,
+            candles.low_prices,
+            candles.close_prices,
+            self.minus_di_period
+        )
 
     def ranging(self) -> np.ndarray:
         """
@@ -110,7 +144,7 @@ class DMIResult(Result):
 
         :return: bool numpy array
         """
-        return cross(self.plus_di, ">", self.minus_di)
+        return cross(self.plus_di > self.minus_di)
 
     def bearish_cross(self) -> np.ndarray:
         """
@@ -120,7 +154,7 @@ class DMIResult(Result):
 
         :return: bool numpy array
         """
-        return cross(self.minus_di, ">", self.plus_di)
+        return cross(self.minus_di > self.plus_di)
 
     def bullish_cross_above_adx(self) -> np.ndarray:
         """
@@ -201,49 +235,3 @@ class DMIResult(Result):
         :return: bool numpy array
         """
         return self.bearish_cross() & (self.adx < self.volatility_limit)
-
-
-class DMIIndicator(Indicator):
-
-    def __init__(self, adx_period=14, plus_di_period=14, minus_di_period=14, volatlity_limit=25.0):
-        self.adx_period = adx_period
-        self.plus_di_period = plus_di_period
-        self.minus_di_period = minus_di_period
-        self.volatlity_limit = volatlity_limit
-
-    def __call__(self, candles: Candles):
-        """
-        Calculates Directional Moving Index
-
-        :param candles: Input data for indicator.
-
-        :return: DMIResult - adx, minus_di, plus_di
-        """
-
-        adx = talib.ADX(
-            candles.high_prices(),
-            candles.low_prices(),
-            candles.close_prices(),
-            self.adx_period
-        )
-
-        plus_di = talib.PLUS_DI(
-            candles.high_prices(),
-            candles.low_prices(),
-            candles.close_prices(),
-            self.plus_di_period,
-        )
-
-        minus_di = talib.MINUS_DI(
-            candles.high_prices(),
-            candles.low_prices(),
-            candles.close_prices(),
-            self.minus_di_period
-        )
-
-        return DMIResult(
-            adx=adx,
-            minus_di=minus_di,
-            plus_di=plus_di,
-            volatility_limit=self.volatlity_limit,
-        )

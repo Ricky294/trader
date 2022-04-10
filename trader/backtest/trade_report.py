@@ -1,12 +1,11 @@
-from typing import List
-
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-from trader import MONEY_PRECISION
+from trader_data.core.schema import OPEN_TIME_INDEX
+
+from trader.config import MONEY_PRECISION
 from trader.core.model import Position
-from trader.core.const.candle_index import OPEN_TIME_INDEX
 
 
 class TradeReport:
@@ -14,7 +13,7 @@ class TradeReport:
     def __init__(
             self,
             start_cash: float,
-            positions: List[Position],
+            positions: list[Position],
             trade_ratio: float,
             candles: np.ndarray,
             interval: str,

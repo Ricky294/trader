@@ -1,7 +1,10 @@
-import copy
-from typing import Callable, Optional, Union, List
+from __future__ import annotations
 
-from trader.core.model import Candles
+import copy
+from typing import Callable
+
+from trader_data.core.model import Candles
+
 from trader.core.exception import PositionError, BalanceError
 from trader.core.enum import OrderSide, TimeInForce, PositionStatus
 from trader.core.interface import FuturesTrader
@@ -34,11 +37,11 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
         self.maker_fee_rate = maker_fee_rate
         self.taker_fee_rate = taker_fee_rate
 
-        self.positions: List[BacktestPosition] = list()
+        self.positions: list[BacktestPosition] = list()
 
-        self.order_group: Optional[BacktestOrderGroup] = None
-        self._leverage: Optional[int] = None
-        self.__candles: Optional[Candles] = None
+        self.order_group: BacktestOrderGroup | None = None
+        self._leverage: int | None = None
+        self.__candles: Candles | None = None
 
     def __call__(self, candles: Candles):
         self.__candles = candles
@@ -53,6 +56,18 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
             if self.order_group.status == PositionStatus.CLOSED:
                 self.positions.append(self.order_group.position)
                 self.order_group = None
+
+    def __position_opened(self):
+        return (
+                self.order_group is not None
+                and self.order_group.status == PositionStatus.OPEN
+        )
+
+    def __position_created_or_opened(self):
+        return (
+                self.order_group is not None
+                and self.order_group.status in (PositionStatus.CREATED, PositionStatus.OPEN)
+        )
 
     def get_latest_price(self, symbol: str):
         return self.__candles.latest_close_price
@@ -74,11 +89,13 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
             self,
             symbol: str,
             money: float,
-            side: Union[int, OrderSide],
+            side: int | OrderSide,
             leverage: int,
             price: float = None,
             take_profit_price: float = None,
             stop_loss_price: float = None,
+            trailing_stop_rate: float = None,
+            trailing_stop_activation_price: float = None,
     ):
         self._leverage = leverage
 
@@ -88,9 +105,10 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
                 f"while your balance is only {self.balance}."
             )
 
-        if self.__is_in_position():
+        if self.__position_created_or_opened():
             raise PositionError(
-                f"Creating a {symbol} position is not allowed, because a {symbol} position is already opened."
+                f"Creating a {symbol} position is not allowed. "
+                f"A {symbol} position is already created or opened."
             )
 
         orders = create_orders(
@@ -100,22 +118,21 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
             entry_price=price,
             take_profit_price=take_profit_price,
             stop_loss_price=stop_loss_price,
+            trailing_stop_rate=trailing_stop_rate,
+            trailing_stop_activation_price=trailing_stop_activation_price,
         )
         self.order_group = BacktestOrderGroup(*orders)
         return remove_none(orders)
 
-    def __is_in_position(self):
-        return self.order_group is not None and self.order_group.is_in_position()
-
     def close_position_market(self, symbol: str):
-        if not self.__is_in_position():
+        if not self.__position_opened():
             raise PositionError("No position to close.")
 
         self.order_group.create_close_order()
         return self.order_group.close_order
 
-    def close_position_limit(self, symbol: str, price: float, time_in_force: Union[str, TimeInForce] = "GTC"):
-        if not self.__is_in_position():
+    def close_position_limit(self, symbol: str, price: float, time_in_force: str | TimeInForce = "GTC"):
+        if not self.__position_opened():
             raise PositionError("No position to close.")
 
         self.order_group.create_close_order(price=price)
@@ -135,10 +152,11 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
             self.order_group.close_order,
             self.order_group.stop_order,
             self.order_group.take_profit_order,
+            self.order_group.trailing_stop_order,
         ))
 
     def get_position(self, symbol: str):
-        if self.__is_in_position():
+        if self.__position_opened():
             return self.order_group.position
 
     def set_leverage(self, symbol: str, leverage: int):

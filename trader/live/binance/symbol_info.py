@@ -1,5 +1,3 @@
-from typing import List, Dict
-
 from trader.core.model import SymbolInfo
 
 
@@ -48,7 +46,7 @@ class BinanceSymbolInfo(SymbolInfo):
         self.quote_precision: int = kwargs["quotePrecision"]
         self.underlying_type: str = kwargs["underlyingType"]
 
-        filters: List[Dict] = kwargs["filters"]
+        filters: list[dict] = kwargs["filters"]
         for flt in filters:
             if "PRICE_FILTER" in flt:
                 self.price_filter = PriceFilter(
@@ -81,5 +79,5 @@ class BinanceSymbolInfo(SymbolInfo):
                     multiplier_decimal=int(flt["multiplierDecimal"]),
                 )
 
-        self.order_types: List[str] = kwargs["orderTypes"]
-        self.time_in_force: List[str] = kwargs["timeInForce"]
+        self.order_types: list[str] = kwargs["orderTypes"]
+        self.time_in_force: list[str] = kwargs["timeInForce"]

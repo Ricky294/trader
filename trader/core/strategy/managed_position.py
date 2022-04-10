@@ -1,28 +1,21 @@
 from abc import abstractmethod
-from typing import Optional, Union
 
-import numpy as np
+from trader_data.core.model import Candles
 
 from trader.core.interface import FuturesTrader
-from trader.core.model import Position, Candles
+from trader.core.model import Position
 
 from .base import Strategy
 
 
-class SinglePositionStrategy(Strategy):
+class ManagedPositionStrategy(Strategy):
 
     def __init__(self, symbol: str, trader: FuturesTrader):
-        super(SinglePositionStrategy, self).__init__(trader)
+        super(ManagedPositionStrategy, self).__init__(trader)
         self.symbol = symbol
 
-    def __call__(self, candles: Union[Candles, np.ndarray]):
-        if isinstance(candles, np.ndarray):
-            candles = Candles.with_data(candles)
-
+    def on_next(self, candles: Candles):
         position = self.trader.get_position(self.symbol)
-        self.on_next(candles, position)
-
-    def on_next(self, candles: Candles, position: Optional[Position]):
         if position is None:
             self.not_in_position(candles)
         else:

@@ -1,16 +1,21 @@
 from enum import Enum
 
 
-class MAType(Enum):
+class MA(Enum):
+    SMA = "SMA"
     EMA = "EMA"
     WMA = "WMA"
-    SMA = "SMA"
+    DEMA = "DEMA"
+    TEMA = "TEMA"
+    TRIMA = "TRIMA"
+    KAMA = "KAMA"
+    MAMA = "MAMA"
+    T3 = "T3"
 
     def __str__(self):
         return self.value
 
     def __int__(self):
-        # talib MA_Type: 0 = SMA, 1 = EMA, 2 = WMA, 3 = DEMA, 4 = TEMA, 5 = TRIMA, 6 = KAMA, 7 = MAMA, 8 = T3
         if self.value == "SMA":
             return 0
         elif self.value == "EMA":

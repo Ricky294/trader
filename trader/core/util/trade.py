@@ -1,38 +1,7 @@
-from typing import Union
-
-import numba
-import numpy as np
-import talib
+from __future__ import annotations
 
 from trader.core.const.trade_actions import BUY, SELL
 from trader.core.enum import OrderSide
-
-from .common import generate_random_string, generate_ascii, compare
-
-
-def talib_ma(type: str, period: int, data: np.ndarray) -> np.ndarray:
-    return getattr(talib, type)(data, timeperiod=period)
-
-
-def cross(left, logical_operator: str, right, /):
-    if logical_operator not in (">", "<", ">=", "<="):
-        raise ValueError("Logical operator must be '>', '<', '>=' or '<='.")
-
-    left_operator = logical_operator
-    if logical_operator == ">" or logical_operator == "<":
-        right_operator = logical_operator + "="
-    elif logical_operator == ">=" or logical_operator == "<=":
-        right_operator = logical_operator.replace("=", "")
-    else:
-        right_operator = logical_operator
-
-    if isinstance(right, np.ndarray) and isinstance(left, np.ndarray):
-        cross_array = (compare(left[1:], left_operator, right[1:])) & (compare(right[:-1], right_operator, left[:-1]))
-    elif isinstance(left, np.ndarray):
-        cross_array = (compare(left[1:], left_operator, right)) & (compare(right, right_operator, left[:-1]))
-    elif isinstance(right, np.ndarray):
-        cross_array = (compare(right[:-1], left_operator, left)) & (compare(left, right_operator, right[1:]))
-    return np.insert(cross_array, 0, False)
 
 
 def str_side_to_int(side: str):
@@ -53,7 +22,7 @@ def int_side_to_str(side: int):
         raise ValueError(f"Side must be {BUY} or {SELL}.")
 
 
-def opposite_side(side: Union[OrderSide, int]):
+def opposite_side(side: OrderSide | int):
     if int(side) == BUY:
         return SELL
     elif int(side) == SELL:
@@ -62,37 +31,7 @@ def opposite_side(side: Union[OrderSide, int]):
         raise ValueError(f"Side must be {BUY} or {SELL}.")
 
 
-@numba.jit(nopython=True)
-def calculate_ha_open(open, close, ha_close):
-    ha_open = np.empty(np.shape(open))
-    ha_open[0] = (open[0] + close[0]) / 2
-
-    for i in range(1, np.shape(open)[0]):
-        ha_open[i] = (ha_open[i-1] + ha_close[i-1]) / 2
-
-    return ha_open
-
-
-def generate_binance_client_order_id() -> str:
-    max_char = 36
-
-    zero_to_nine = "".join(generate_ascii(48, 58))
-    a_to_z = "".join(generate_ascii(65, 91))
-    A_to_Z = "".join(generate_ascii(97, 123))
-
-    return generate_random_string(r".:/_-" + zero_to_nine + a_to_z + A_to_Z, max_char)
-
-
-def to_heikin_ashi(open: np.ndarray, high: np.ndarray, low: np.ndarray, close: np.ndarray):
-    ha_close = (open + high + low + close) / 4
-    ha_open = calculate_ha_open(open, close, ha_close)
-    ha_high = np.maximum.reduce((high, ha_open, ha_close))
-    ha_low = np.minimum.reduce((low, ha_open, ha_close))
-
-    return ha_open, ha_high, ha_low, ha_close
-
-
-def get_side_by_quantity(quantity: Union[float, int]):
+def get_side_by_quantity(quantity: float | int):
     return BUY if quantity > 0 else SELL
 
 
@@ -136,7 +75,7 @@ def calculate_pnl(
         entry_price: float,
         exit_price: float,
         quantity: float,
-        side: Union[OrderSide, int],
+        side: OrderSide | int,
         leverage: int = 1,
 ):
     """
@@ -161,7 +100,7 @@ def calculate_pnl(
 def calculate_target_price(
         entry_price: float,
         roe: float,
-        side: Union[OrderSide, str],
+        side: OrderSide | str,
         leverage: int
 ):
     diff = entry_price * roe / leverage
@@ -177,10 +116,12 @@ def calculate_target_price(
 def create_orders(
         symbol: str,
         money: float,
-        side: Union[int, OrderSide],
+        side: int | OrderSide,
         entry_price: float = None,
         take_profit_price: float = None,
         stop_loss_price: float = None,
+        trailing_stop_rate: float = None,
+        trailing_stop_activation_price: float = None,
 ):
     from trader.core.model import Order
 
@@ -196,12 +137,18 @@ def create_orders(
     else:
         entry_order = Order.limit(symbol=symbol, side=side, money=money, price=entry_price)
 
-    tp_sl_side = opposite_side(side)
-    take_profit_order = None
-    stop_order = None
+    other_side = opposite_side(side)
+    take_profit_order = stop_order = trailing_stop_order = None
     if take_profit_price is not None:
-        take_profit_order = Order.take_profit_market(symbol=symbol, side=tp_sl_side, stop_price=take_profit_price)
+        take_profit_order = Order.take_profit_market(symbol=symbol, side=other_side, stop_price=take_profit_price)
     if stop_loss_price is not None:
-        stop_order = Order.stop_market(symbol=symbol, side=tp_sl_side, stop_price=stop_loss_price)
+        stop_order = Order.stop_market(symbol=symbol, side=other_side, stop_price=stop_loss_price)
+    if trailing_stop_rate is not None:
+        trailing_stop_order = Order.trailing_stop_market_order(
+            symbol=symbol,
+            side=other_side,
+            trailing_rate=trailing_stop_rate,
+            activation_price=trailing_stop_activation_price,
+        )
 
-    return entry_order, stop_order, take_profit_order
+    return entry_order, stop_order, take_profit_order, trailing_stop_order

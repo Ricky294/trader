@@ -1,7 +1,9 @@
-from typing import Union, Optional
+from __future__ import annotations
+
+from trader_data.core.model import Candles
 
 from trader.core.exception import PositionError
-from trader.core.model import Position, LimitOrder, MarketOrder, Order, Candles
+from trader.core.model import Position, LimitOrder, MarketOrder, Order
 from trader.core.const.trade_actions import BUY, SELL
 from trader.core.util.trade import calculate_money_fee
 
@@ -15,7 +17,7 @@ class BacktestPosition(Position):
 
     def __init__(
             self,
-            order: Union[MarketOrder, LimitOrder],
+            order: MarketOrder | LimitOrder,
             candles: Candles,
             balance: BacktestBalance,
             leverage: int,
@@ -42,9 +44,9 @@ class BacktestPosition(Position):
         self.entry_fee = fee
         self.__candles = candles
 
-        self.exit_fee: Optional[int] = None
-        self.exit_time: Optional[int] = None
-        self.exit_price: Optional[float] = None
+        self.exit_fee: int | None = None
+        self.exit_time: int | None = None
+        self.exit_price: float | None = None
 
     def __call__(self, balance: BacktestBalance, candles: Candles):
         if self.is_closed():
@@ -74,7 +76,7 @@ class BacktestPosition(Position):
             self,
             time: int,
             price: float,
-            order: Union[Order],
+            order: Order,
             balance: BacktestBalance,
             maker_fee_rate: float,
             taker_fee_rate: float,

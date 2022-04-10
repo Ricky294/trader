@@ -1,25 +1,65 @@
-import numpy as np
 import talib
 
-from trader.core.enum import MAType
-from trader.core.indicator import Indicator, Result
-from trader.core.model import Candles
-from trader.core.util.trade import cross
+from trader_data.core.model import Candles
+
+from trader.core.enum import MA
+from trader.core.indicator import Indicator
+from trader.core.util.vectorized.trade import cross
 
 
-class STOCHResult(Result):
+class STOCHIndicator(Indicator):
+    """Stochastic"""
+
+    color = {"k": "#", "d": "#"}
 
     def __init__(
             self,
-            k: np.ndarray,
-            d: np.ndarray,
-            upper_limit: float,
-            lower_limit: float,
+            upper_limit=80.0,
+            lower_limit=20.0,
+            fast_k_period=5,
+            slow_k_period=3,
+            slow_k_ma=MA.SMA,
+            slow_d_period=3,
+            slow_d_ma=MA.SMA,
     ):
-        self.k = k
-        self.d = d
+        """
+        :param upper_limit: %D line above this limit -> overbought
+        :param lower_limit: %D line below this limit -> oversold
+        :param fast_k_period: %K period
+        :param slow_k_period: %K smoothing period
+        :param slow_k_ma: %K smoothing moving average type
+        :param slow_d_period: %D smoothing period
+        :param slow_d_ma: %D smoothing moving average type
+        """
+
         self.upper_limit = upper_limit
         self.lower_limit = lower_limit
+        self.fast_k_period = fast_k_period
+        self.slow_k_period = slow_k_period
+        self.slow_k_ma = slow_k_ma
+        self.slow_d_period = slow_d_period
+        self.slow_d_ma = slow_d_ma
+
+    def __call__(self, candles: Candles):
+        """
+        Stochastic (Momentum Indicator)
+
+        Returns the %K (fast) and %D (slow) line.
+
+        :param candles: Input data for indicator.
+
+        :return: STOCHResult - k, d
+        """
+        self.k, self.d = talib.STOCH(
+            candles.high_prices,
+            candles.low_prices,
+            candles.close_prices,
+            fastk_period=self.fast_k_period,
+            slowk_period=self.slow_k_period,
+            slowk_matype=int(self.slow_k_ma),
+            slowd_period=self.slow_d_period,
+            slowd_matype=int(self.slow_d_ma),
+        )
 
     def above_upper_limit(self):
         """
@@ -89,7 +129,7 @@ class STOCHResult(Result):
 
         :return: bool numpy array
         """
-        return cross(self.k, ">", self.d)
+        return cross(self.k > self.d)
 
     def bearish_cross(self):
         """
@@ -99,7 +139,7 @@ class STOCHResult(Result):
 
         :return: bool numpy array
         """
-        return cross(self.k, "<", self.d)
+        return cross(self.k < self.d)
 
     def bullish_cross_below_limit(self):
         """
@@ -121,61 +161,3 @@ class STOCHResult(Result):
         """
         return self.bearish_cross() & (self.k > self.upper_limit)
 
-
-class STOCHIndicator(Indicator):
-
-    def __init__(
-            self,
-            upper_limit=80.0,
-            lower_limit=20.0,
-            fast_k_period=5,
-            slow_k_period=3,
-            slow_k_ma=MAType.SMA,
-            slow_d_period=3,
-            slow_d_ma=MAType.SMA,
-    ):
-        """
-        :param upper_limit: %D line above this limit -> overbought
-        :param lower_limit: %D line below this limit -> oversold
-        :param fast_k_period: %K period
-        :param slow_k_period: %K smoothing period
-        :param slow_k_ma: %K smoothing moving average type
-        :param slow_d_period: %D smoothing period
-        :param slow_d_ma: %D smoothing moving average type
-        """
-
-        self.upper_limit = upper_limit
-        self.lower_limit = lower_limit
-        self.fast_k_period = fast_k_period
-        self.slow_k_period = slow_k_period
-        self.slow_k_ma = slow_k_ma
-        self.slow_d_period = slow_d_period
-        self.slow_d_ma = slow_d_ma
-
-    def __call__(self, candles: Candles) -> STOCHResult:
-        """
-        Stochastic (Momentum Indicator)
-
-        Returns the %K (fast) and %D (slow) line.
-
-        :param candles: Input data for indicator.
-
-        :return: STOCHResult - k, d
-        """
-        k, d = talib.STOCH(
-            candles.high_prices(),
-            candles.low_prices(),
-            candles.close_prices(),
-            fastk_period=self.fast_k_period,
-            slowk_period=self.slow_k_period,
-            slowk_matype=int(self.slow_k_ma),
-            slowd_period=self.slow_d_period,
-            slowd_matype=int(self.slow_d_ma),
-        )
-
-        return STOCHResult(
-            k=k,
-            d=d,
-            upper_limit=self.upper_limit,
-            lower_limit=self.lower_limit,
-        )

@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from enum import Enum
-from typing import Union
 
 from ..const.trade_actions import (
     BUY as BUY_,
@@ -15,7 +16,7 @@ class OrderSide(Enum):
     SHORT = SELL_
 
     @classmethod
-    def from_value(cls, side: Union[str, int]):
+    def from_value(cls, side: str | int):
         if isinstance(side, str):
             from ..util.trade import str_side_to_int
             side = str_side_to_int(side)

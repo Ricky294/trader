@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Union
+from __future__ import annotations
 
 from binance.client import Client
 
@@ -22,8 +22,8 @@ class BinanceFuturesTrader(FuturesTrader):
     def get_latest_price(self, symbol: str):
         return float(self.client.futures_symbol_ticker(symbol=symbol)["price"])
 
-    def _close_position_limit(self, symbol: str, price: float, time_in_force: Union[TimeInForce, str] = "GTC"):
-        position = self._get_position(symbol=symbol)
+    def close_position_limit(self, symbol: str, price: float, time_in_force: TimeInForce | str = "GTC"):
+        position = self.get_position(symbol=symbol)
 
         if position is None:
             raise PositionError("No position to close! Skip creating limit order.")
@@ -37,8 +37,8 @@ class BinanceFuturesTrader(FuturesTrader):
             time_in_force=time_in_force,
         )
 
-    def _close_position_market(self, symbol: str):
-        position = self._get_position(symbol=symbol)
+    def close_position_market(self, symbol: str):
+        position = self.get_position(symbol=symbol)
 
         if position is None:
             raise PositionError("No position to close! Skip creating market order.")
@@ -46,7 +46,7 @@ class BinanceFuturesTrader(FuturesTrader):
         close_position_market(client=self.client, position=position)
 
     def take_profit_market(self, symbol: str, stop_price: float):
-        position = self._get_position(symbol=symbol)
+        position = self.get_position(symbol=symbol)
 
         if position is None:
             raise PositionError("No position to close! Skip creating take profit market order.")
@@ -60,7 +60,7 @@ class BinanceFuturesTrader(FuturesTrader):
         )
 
     def stop_loss_market(self, symbol: str, stop_price: float):
-        position = self._get_position(symbol=symbol)
+        position = self.get_position(symbol=symbol)
 
         if position is None:
             raise PositionError("No position to close! Skip creating stop loss market order.")
@@ -73,20 +73,20 @@ class BinanceFuturesTrader(FuturesTrader):
             price_precision=info.price_precision,
         )
 
-    def __is_in_position(self, symbol: str):
+    def __in_position(self, symbol: str):
         return self.get_position(symbol) is not None
 
-    def _create_position(
+    def create_position(
             self,
             symbol: str,
             money: float,
-            side: Union[int, OrderSide],
+            side: int | OrderSide,
             leverage: int,
             price: float = None,
             take_profit_price: float = None,
             stop_loss_price: float = None,
     ):
-        if self.__is_in_position(symbol):
+        if self.__in_position(symbol):
             raise PositionError(
                 f"Creating a {symbol} position is not allowed, because a {symbol} position is already opened."
             )
@@ -121,15 +121,15 @@ class BinanceFuturesTrader(FuturesTrader):
 
         # self.client.futures_place_batch_order(batchOrders=orders)
 
-    def _cancel_orders(self, symbol: str):
+    def cancel_orders(self, symbol: str):
         self.client.futures_cancel_all_open_orders(symbol=symbol)
 
-    def _get_open_orders(self, symbol: str = None) -> List[Order]:
-        open_orders: List[Dict] = self.client.futures_get_open_orders(symbol=symbol)
+    def get_open_orders(self, symbol: str = None) -> list[Order]:
+        open_orders: list[dict] = self.client.futures_get_open_orders(symbol=symbol)
         return [Order.from_binance(order) for order in open_orders]
 
-    def __get_balances(self) -> List[BinanceBalance]:
-        balances: List[Dict] = self.client.futures_account_balance()
+    def __get_balances(self) -> list[BinanceBalance]:
+        balances: list[dict] = self.client.futures_account_balance()
 
         return [
             BinanceBalance(
@@ -141,14 +141,14 @@ class BinanceFuturesTrader(FuturesTrader):
             if float(balance["withdrawAvailable"]) > 0.0
         ]
 
-    def _get_balance(self, asset: str) -> BinanceBalance:
+    def get_balance(self, asset: str) -> BinanceBalance:
         for balance in self.__get_balances():
             if balance.asset == asset:
                 return balance
         raise BalanceError(f"{asset!r} account balance is 0.")
 
-    def _get_position(self, symbol: str) -> Optional[BinancePosition]:
+    def get_position(self, symbol: str) -> BinancePosition | None:
         return get_position(client=self.client, symbol=symbol)
 
-    def _set_leverage(self, symbol: str, leverage: int):
+    def set_leverage(self, symbol: str, leverage: int):
         self.client.futures_change_leverage(symbol=symbol, leverage=leverage)
