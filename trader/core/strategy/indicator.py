@@ -1,6 +1,7 @@
+from trader_data.core.model import Candles
+
 from trader.core.indicator import Indicator
 from trader.core.interface import FuturesTrader
-from trader.core.model import Candles
 from trader.core.strategy import Strategy
 
 

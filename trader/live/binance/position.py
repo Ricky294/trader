@@ -1,4 +1,4 @@
-from typing import Union
+from __future__ import annotations
 
 from binance.client import Client
 
@@ -76,7 +76,7 @@ def close_position_limit(
         position: BinancePosition,
         price: float,
         price_precision: int,
-        time_in_force: Union[TimeInForce, str] = "GTC",
+        time_in_force: TimeInForce | str = "GTC",
 ):
     price = round_down(price, price_precision)
     side = int_side_to_str(opposite_side(position.side))

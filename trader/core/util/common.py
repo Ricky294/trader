@@ -1,22 +1,32 @@
+from __future__ import annotations
+
 import json
 import operator
 import os
 import pathlib
-import re
-
-import importlib
-import inspect
-from abc import ABCMeta
-
-try:
-    import cPickle as pickle
-except ModuleNotFoundError:
-    import pickle
-
 import random
-from typing import Union
+from typing import Callable, Iterable
 
 import yaml
+
+
+def singleton(callable_obj: Callable, /):
+    """
+    Decorator function.
+
+    Calls wrapped callable only once and caches its value.
+    :returns: Cached value returned by the wrapped function.
+    """
+
+    val = None
+
+    def wrapper(*args, **kwargs):
+        nonlocal val
+        if val is None:
+            val = callable_obj(*args, **kwargs)
+        return val
+
+    return wrapper
 
 
 def read_json(*path):
@@ -37,7 +47,7 @@ def read_config(path: str) -> dict:
         return read_json(path)
 
 
-def round_down(number: Union[float, int, None], precision: int):
+def round_down(number: float | int | None, precision: int):
     if number is None:
         return
 
@@ -48,15 +58,15 @@ def round_down(number: Union[float, int, None], precision: int):
     return float(s[: s.find(".") + precision + 1])
 
 
-def remove_none(data):
+def remove_none(data: Iterable):
     if isinstance(data, dict):
         return {k: v for k, v in data.items() if v is not None}
 
     return [x for x in data if x is not None]
 
 
-def generate_ascii(start: int, end: int):
-    return (chr(n) for n in range(start, end))
+def generate_character_sequence(start: int, end: int):
+    return (chr(i) for i in range(start, end))
 
 
 def generate_random_string(chars: str, size: int):
@@ -78,88 +88,16 @@ logical_operators = {
     "<=": operator.le,
     "==": operator.eq,
     "!=": operator.ne,
+    "gt": operator.gt,
+    "lt": operator.lt,
+    "ge": operator.ge,
+    "le": operator.le,
+    "eq": operator.eq,
+    "ne": operator.ne,
 }
 
 
-def compare(left_value, logical_operator, right_value):
-    return logical_operators[logical_operator](left_value, right_value)
-
-
-def interval_to_seconds(interval: str):
-
-    time = int(interval[0:len(interval) - 1])
-    metric = interval[-1]
-
-    if metric.lower() == "s":
-        return time
-    elif metric == "m":
-        return time * 60
-    elif metric.lower() == "h":
-        return time * 3600
-    elif metric.lower() == "d":
-        return time * 86400
-    elif metric.lower() == "w":
-        return time * 604800
-    elif metric == "M":
-        return time * 2629800
-    elif metric.lower() == "y":
-        return time * 31557600
-
-
-def pickle_loader(filename):
-    with open(filename, "rb") as f:
-        while True:
-            try:
-                yield pickle.load(f)
-            except EOFError:
-                break
-
-
-def save_object(obj, filename):
-    with open(filename, 'ab ') as outp:  # Overwrites any existing file.
-        pickle.dump(obj, outp, pickle.HIGHEST_PROTOCOL)
-
-
-def split_by_capital(txt: str):
-    return (c for c in re.split(r'([A-Z][a-z]*\d*)', txt) if c)
-
-
-def space_by_capital(txt: str):
-    return " ".join(split_by_capital(txt))
-
-
-def get_concrete_class_init_params2(module_name: str, module_package: str = None):
-    module = importlib.import_module(name=module_name, package=module_package)
-
-    concrete_strategies = {
-        name: value
-        for name, value in module.__dict__.items()
-        if isinstance(value, ABCMeta) and not inspect.isabstract(value)
-    }
-    concrete_strategy_init_params = {
-        key: [
-            get_parameter_info(param)
-            for param in inspect.signature(value.__init__).parameters.values()
-            if param.name not in ("self", "args", "kwargs")
-        ]
-        for key, value in concrete_strategies.items()
-    }
-
-    return concrete_strategy_init_params
-
-
-def get_parameter_info(param: inspect.Parameter):
-    annotation_split = str(param.annotation).split("'")
-    if len(annotation_split) == 1:
-        annotation = annotation_split[0]
-    else:
-        annotation = annotation_split[1]
-
-    if annotation == "inspect._empty":
-        annotation = "typing.Any"
-
-    default = str(param.default)
-    if default in ("None", "<class 'inspect._empty'>"):
-        default = ''
-
-    return tuple((annotation, default))
+def compare(left_value, logical_operator: str | Callable[[any, any], any], right_value, /):
+    if isinstance(logical_operator, str):
+        return logical_operators[logical_operator](left_value, right_value)
+    return logical_operator(left_value, right_value)

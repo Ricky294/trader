@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 from abc import abstractmethod
-from typing import Union
-from ..enum import OrderSide
-from ..util.trade import int_side_to_str
-from ... import MONEY_PRECISION, PROFIT_PRECISION, PRICE_PRECISION
+
+from trader.core.enum import OrderSide
+from trader.core.util.trade import int_side_to_str
+from trader.config import MONEY_PRECISION, PROFIT_PRECISION, PRICE_PRECISION
 
 
 class Position:
@@ -13,7 +15,7 @@ class Position:
             self,
             symbol: str,
             money: float,
-            side: Union[int, OrderSide],
+            side: int | OrderSide,
             entry_price: float,
             entry_time: int,
             leverage: int,
@@ -30,7 +32,7 @@ class Position:
             cls,
             symbol: str,
             quantity: float,
-            side: Union[int, OrderSide],
+            side: int | OrderSide,
             entry_price: float,
             entry_time: int,
             leverage: int,

@@ -2,6 +2,6 @@ from enum import Enum
 
 
 class PositionStatus(Enum):
-    NONE = "NONE"
+    CREATED = "NONE"
     OPEN = "OPEN"
     CLOSED = "CLOSED"

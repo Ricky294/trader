@@ -1,10 +1,10 @@
 from enum import Enum
 
 
-class CandlestickType(Enum):
-    LINE = 0
-    JAPANESE = 1
-    HEIKIN_ASHI = 2
+class Candlestick(Enum):
+    LINE = "Line"
+    JAPANESE = "Japanese"
+    HEIKIN_ASHI = "Heikin Ashi"
 
     def __str__(self):
         return self.value

@@ -1,19 +1,55 @@
-from typing import Union
+from __future__ import annotations
 
 import numpy as np
 
-from trader.core.enum import OHLCV, MAType
-from trader.core.indicator import Indicator, Result
-from trader.core.model import Candles
-from trader.core.util.np import avg_line
-from trader.core.util.trade import talib_ma, cross
+from trader_data.core.model import Candles
+from trader_data.core.enum import OHLCV
+
+from trader.core.enum import MA
+from trader.core.indicator import Indicator
+from trader.core.util.vectorized.trade import talib_ma, cross
 
 
-class DoubleMAResult(Result):
+class DoubleMAIndicator(Indicator):
+    """Double Moving Average"""
 
-    def __init__(self, slow_ma: np.ndarray, fast_ma: np.ndarray):
-        self.slow_ma = slow_ma
-        self.fast_ma = fast_ma
+    color = {"fast_ma": "#00bcd4", "slow_ma": "#f23645"}
+
+    def __init__(
+            self,
+            fast_period: int,
+            fast_type: str | MA,
+            slow_period: int,
+            slow_type: str | MA,
+            fast_line=OHLCV.CLOSE_PRICE,
+            slow_line=OHLCV.CLOSE_PRICE,
+    ):
+        self.fast_period = fast_period
+        self.fast_type = fast_type
+        self.fast_line = fast_line
+
+        self.slow_period = slow_period
+        self.slow_type = slow_type
+        self.slow_line = slow_line
+
+    def __call__(self, candles: Candles):
+        """
+        Calculates a slow and a fast moving average.
+
+        :param candles: Input data for calculating slow and fast MA.
+        :return: IndicatorResult - slow_ma, fast_ma
+        """
+
+        self.fast_ma = talib_ma(
+            candles.avg_line(self.fast_line),
+            type=self.fast_type,
+            period=self.fast_period,
+        )
+        self.slow_ma = talib_ma(
+            candles.avg_line(self.slow_line),
+            type=self.slow_type,
+            period=self.slow_period,
+        )
 
     def uptrend(self) -> np.ndarray:
         """
@@ -43,7 +79,7 @@ class DoubleMAResult(Result):
 
         :return: bool numpy array
         """
-        return cross(self.fast_ma, ">", self.slow_ma)
+        return cross(self.fast_ma > self.slow_ma)
 
     def bearish_cross(self) -> np.ndarray:
         """
@@ -53,48 +89,4 @@ class DoubleMAResult(Result):
 
         :return: bool numpy array
         """
-        return cross(self.fast_ma, "<", self.slow_ma)
-
-
-class DoubleMAIndicator(Indicator):
-
-    def __init__(
-            self,
-            fast_period: int,
-            fast_type: Union[str, MAType],
-            slow_period: int,
-            slow_type: Union[str, MAType],
-            fast_line=OHLCV.CLOSE_PRICE,
-            slow_line=OHLCV.CLOSE_PRICE,
-    ):
-        self.fast_period = fast_period
-        self.fast_type = fast_type
-        self.fast_line = fast_line
-
-        self.slow_period = slow_period
-        self.slow_type = slow_type
-        self.slow_line = slow_line
-
-    def __call__(self, candles: Candles):
-        """
-        Calculates a slow and a fast moving average.
-
-        :param candles: Input data for calculating slow and fast MA.
-        :return: IndicatorResult - slow_ma, fast_ma
-        """
-
-        fast_ma = talib_ma(
-            type=self.fast_type,
-            period=self.fast_period,
-            data=avg_line(candles, self.fast_line),
-        )
-        slow_ma = talib_ma(
-            type=self.slow_type,
-            period=self.slow_period,
-            data=avg_line(candles, self.slow_line),
-        )
-
-        return DoubleMAResult(
-            slow_ma=slow_ma,
-            fast_ma=fast_ma,
-        )
+        return cross(self.fast_ma < self.slow_ma)

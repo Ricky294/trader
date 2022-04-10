@@ -1,7 +1,6 @@
 from .balance import Balance
 from .position import Position
 from .symbol_info import SymbolInfo
-from .candles import Candles
 from .order import (
     Order,
     MarketOrder,
@@ -10,4 +9,5 @@ from .order import (
     TakeProfitLimitOrder,
     StopLimitOrder,
     StopMarketOrder,
+    TrailingStopMarketOrder,
 )

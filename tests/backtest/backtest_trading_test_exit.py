@@ -1,21 +1,21 @@
-from typing import List, Optional
+from __future__ import annotations
 
 from trader.backtest import BacktestFuturesTrader, BacktestBot, BacktestBalance
 from trader.core.interface import FuturesTrader
 from trader.core.model import Order, Position, Candles, Balance
 from trader.core.const.trade_actions import SELL, BUY
-from trader.core.enum import CandlestickType
-from trader.core.strategy import SinglePositionStrategy
+from trader.core.enum import Candlestick
+from trader.core.strategy import ManagedPositionStrategy
 
 
-class TestExitStrategy(SinglePositionStrategy):
+class TestExitStrategy(ManagedPositionStrategy):
 
     def __init__(self, symbol: str, trader: FuturesTrader, trade_ratio: float, leverage: int):
         super().__init__(symbol=symbol, trader=trader)
         self.trade_ratio = trade_ratio
         self.leverage = leverage
 
-    def on_entry_order(self, symbol: str, orders: List[Order]):
+    def on_entry_order(self, symbol: str, orders: list[Order]):
         self.logger.info(f"Created entry order(s): {', '.join((str(order) for order in orders))}")
 
     def on_close_order(self, symbol: str, order: Order):
@@ -24,13 +24,13 @@ class TestExitStrategy(SinglePositionStrategy):
     def on_set_leverage(self, symbol: str, leverage: int):
         self.logger.info(f"Leverage is set to: {leverage}")
 
-    def on_cancel_orders(self, symbol: str, orders: List[Order]):
+    def on_cancel_orders(self, symbol: str, orders: list[Order]):
         self.logger.info(f"Canceled order(s): {', '.join((str(order) for order in orders))}")
 
-    def on_get_balance(self, asset: str, balance: Optional[Balance]):
+    def on_get_balance(self, asset: str, balance: Balance | None):
         self.logger.info(f"Balance: {balance}")
 
-    def on_get_position(self, symbol: str, position: Optional[Position]):
+    def on_get_position(self, symbol: str, position: Position | None):
         self.logger.info(f"Position: {position}")
 
     def in_position(self, candles: Candles, position: Position):
@@ -66,4 +66,4 @@ def test_backtest_trading():
     bot.add_data(candles=candles)
     bot.add_strategy(strategy=strategy)
     bot.run(enable_logging=True)
-    bot.plot(candlestick_type=CandlestickType.JAPANESE)
+    bot.plot(candlestick_type=Candlestick.JAPANESE)

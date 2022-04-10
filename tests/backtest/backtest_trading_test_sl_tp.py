@@ -3,7 +3,7 @@ from trader.backtest.balance import BacktestBalance
 from trader.core.model.candles import Candles
 
 from trader.core.const.trade_actions import SELL, BUY
-from trader.core.enum import CandlestickType
+from trader.core.enum import Candlestick
 from trader.core.strategy import Strategy
 
 
@@ -61,4 +61,4 @@ def test_backtest_trading():
     bot.add_strategy(strategy=strategy)
 
     bot.run()
-    bot.plot(candlestick_type=CandlestickType.JAPANESE)
+    bot.plot(candlestick_type=Candlestick.JAPANESE)

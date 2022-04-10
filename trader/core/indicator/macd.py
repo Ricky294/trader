@@ -1,23 +1,50 @@
 import numpy as np
 import talib
-from trader.core.enum.ohlcv import OHLCV
 
-from trader.core.indicator import Indicator, Result
-from trader.core.model import Candles
-from trader.core.util.np import avg_line
-from trader.core.util.trade import cross
+from trader_data.core.enum import OHLCV
+from trader_data.core.model import Candles
+
+from trader.core.indicator import Indicator
+from trader.core.util.vectorized.trade import cross
 
 
-class MACDResult(Result):
+class MACDIndicator(Indicator):
+    """Moving Average Convergence Divergence"""
+
     def __init__(
             self,
-            macd: np.ndarray,
-            signal: np.ndarray,
-            histogram: np.ndarray,
+            line=OHLCV.CLOSE_PRICE,
+            fast_period=12,
+            slow_period=26,
+            signal_period=9,
     ):
-        self.macd = macd
-        self.signal = signal
-        self.histogram = histogram
+        """
+        :param line: Price line to calculate MACD on.
+        :param fast_period: Look-back period for MACD.
+        :param slow_period: Look-back period for signal line.
+        :param signal_period: Signal smoothing.
+        """
+
+        self.line = line
+        self.fast_period = fast_period      # macd line
+        self.slow_period = slow_period      # signal line
+        self.signal_period = signal_period
+
+    def __call__(self, candles: Candles):
+        """
+        Calculates Moving Average Convergence/Divergence (Momentum Indicator)
+
+        :param candles: Input data for indicator.
+
+        :return: MACDResult - macd, signal, histogram
+        """
+
+        self.macd, self.signal, self.histogram = talib.MACD(
+            candles.avg_line(self.line),
+            fastperiod=self.fast_period,
+            slowperiod=self.slow_period,
+            signalperiod=self.signal_period,
+        )
 
     def macd_above_zero(self) -> np.ndarray:
         """
@@ -97,7 +124,7 @@ class MACDResult(Result):
 
         :return: bool numpy array
         """
-        return cross(self.macd, ">", .0)
+        return cross(self.macd > .0)
 
     def macd_cross_below_zero(self) -> np.ndarray:
         """
@@ -109,7 +136,7 @@ class MACDResult(Result):
 
         :return: bool numpy array
         """
-        return cross(self.macd, "<", .0)
+        return cross(self.macd < .0)
 
     def signal_cross_above_zero(self) -> np.ndarray:
         """
@@ -119,7 +146,7 @@ class MACDResult(Result):
 
         :return: bool numpy array
         """
-        return cross(self.signal, ">", .0)
+        return cross(self.signal > .0)
 
     def signal_cross_below_zero(self) -> np.ndarray:
         """
@@ -129,7 +156,7 @@ class MACDResult(Result):
 
         :return: bool numpy array
         """
-        return cross(self.signal, "<", .0)
+        return cross(self.signal < .0)
 
     def bullish_cross(self) -> np.ndarray:
         """
@@ -141,7 +168,7 @@ class MACDResult(Result):
 
         :return: bool numpy array
         """
-        return cross(self.macd, ">", self.signal)
+        return cross(self.macd > self.signal)
 
     def bearish_cross(self) -> np.ndarray:
         """
@@ -152,48 +179,5 @@ class MACDResult(Result):
         :return: bool numpy array
         """
 
-        return cross(self.macd, "<", self.signal)
+        return cross(self.macd < self.signal)
 
-
-class MACDIndicator(Indicator):
-
-    def __init__(
-            self,
-            line=OHLCV.CLOSE_PRICE,
-            fast_period=12,
-            slow_period=26,
-            signal_period=9,
-    ):
-        """
-        :param line: Price line to calculate MACD on.
-        :param fast_period: Look-back period for MACD.
-        :param slow_period: Look-back period for signal line.
-        :param signal_period: Signal smoothing.
-        """
-
-        self.line = line
-        self.fast_period = fast_period      # macd line
-        self.slow_period = slow_period      # signal line
-        self.signal_period = signal_period
-
-    def __call__(self, candles: Candles):
-        """
-        Calculates Moving Average Convergence/Divergence (Momentum Indicator)
-
-        :param candles: Input data for indicator.
-
-        :return: MACDResult - macd, signal, histogram
-        """
-
-        macd, signal, histogram = talib.MACD(
-            avg_line(candles=candles, line=self.line),
-            fastperiod=self.fast_period,
-            slowperiod=self.slow_period,
-            signalperiod=self.signal_period,
-        )
-
-        return MACDResult(
-            macd=macd,
-            signal=signal,
-            histogram=histogram,
-        )

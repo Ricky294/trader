@@ -1,25 +1,28 @@
+from __future__ import annotations
+
 from enum import Enum
 
+import plotly.graph_objects as go
 import numpy as np
 
 
 class Graph(Enum):
-    CAPITAL = "CAPITAL"
-    PROFIT = "PROFIT"
-    CANDLESTICK = "CANDLESTICK"
-    NEW = "NEW"
+    CAPITAL = 0
+    PROFIT = 1
+    MAIN = 2
+    NEW = 3
 
 
 class CustomGraph:
 
     def __init__(
             self,
-            figure_index: int,
-            plot_type: str,
-            plot_params: dict,
-            y_data: np.ndarray,
+            selected: Graph,
+            type,
+            params: dict,
+            y: np.ndarray | int | float,
     ):
-        self.figure_index = figure_index
-        self.plot_type = plot_type
-        self.plot_params = plot_params
-        self.y_data = y_data
+        self.selected = selected
+        self.type = getattr(go, type.capitalize()) if isinstance(type, str) else type
+        self.params = params
+        self.y = y

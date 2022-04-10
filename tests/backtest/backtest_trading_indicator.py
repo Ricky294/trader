@@ -1,14 +1,12 @@
-from typing import List
-
 import numpy as np
 
 from trader.backtest import BacktestFuturesTrader, BacktestBot
 from trader.backtest.balance import BacktestBalance
 
-from trader.core.indicator import Indicator, Result
-from trader.core.model import Candles, Order
+from trader.core.indicator import Indicator
+from trader.core.model import Candles
 from trader.core.const.trade_actions import SELL, BUY, NONE
-from trader.core.enum import CandlestickType
+from trader.core.enum import Candlestick
 from trader.core.strategy import Strategy
 
 
@@ -93,4 +91,4 @@ def test_backtest_trading():
         leverage=1,
     )
     bot.run()
-    bot.plot(candlestick_type=CandlestickType.JAPANESE)
+    bot.plot(candlestick_type=Candlestick.JAPANESE)
