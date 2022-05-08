@@ -1,9 +1,9 @@
 import talib
 
-from trader_data.core.model import Candles
-from trader_data.core.enum import OHLCV
+from trader.data.model import Candles
+from trader.data.enum import OHLCV
 
-from trader.core.enum import MAType
+from trader.core.enumerate import MA
 from trader.core.indicator import Indicator
 from trader.core.util.vectorized.trade import cross
 
@@ -18,7 +18,7 @@ class STOCHRSIIndicator(Indicator):
             period=14,
             k_period=5,
             d_period=3,
-            d_ma=MAType.SMA,
+            d_ma=MA.SMA,
     ):
         """
         :param upper_limit: %D line above this limit -> overbought
@@ -49,7 +49,7 @@ class STOCHRSIIndicator(Indicator):
         """
 
         self.k, self.d = talib.STOCHRSI(
-            candles.avg_line(self.line),
+            candles.average(self.line),
             timeperiod=self.period,
             fastk_period=self.k_period,
             fastd_period=self.d_period,

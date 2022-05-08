@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from trader_data.core.model import Candles
-from trader_data.core.enum import OHLCV
+from trader.data.model import Candles
+from trader.data.enum import OHLCV
 
-from trader.core.enum import MA
+from trader.core.enumerate import MA
 from trader.core.indicator import Indicator
 from trader.core.util.vectorized.trade import talib_ma, slope
 
@@ -29,7 +29,7 @@ class MeanReversionIndicator(Indicator):
 
     def __call__(self, candles: Candles):
         self.__candles = candles
-        self.ma = talib_ma(candles.avg_line(self.ma_line), type=self.ma_type, period=self.ma_period)
+        self.ma = talib_ma(candles.average(self.ma_line), type=self.ma_type, period=self.ma_period)
         self.ma_slope = slope(self.ma, self.slope_period)
 
     def candle_wick_mean_reversion(self) -> np.ndarray:

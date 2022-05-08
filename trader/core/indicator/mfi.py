@@ -1,7 +1,8 @@
 import numpy as np
+import nputils as npu
 import talib
 
-from trader_data.core.model import Candles
+from trader.data.model import Candles
 
 from trader.core.indicator import Indicator
 from trader.core.util.vectorized.trade import cross
@@ -103,7 +104,10 @@ class MFIIndicator(Indicator):
 
         :return: bool numpy array
         """
-        return self.overbought() & (self.mfi[-1] < self.mfi[-2])
+        try:
+            return self.overbought() & npu.peak_reversal(self.mfi)
+        except IndexError:
+            return np.full(self.mfi.shape, False)
 
     def oversold_reversal(self) -> np.ndarray:
         """
@@ -113,4 +117,7 @@ class MFIIndicator(Indicator):
 
         :return: bool numpy array
         """
-        return self.oversold() & (self.mfi[-1] > self.mfi[-2])
+        try:
+            return self.oversold() & npu.bottom_reversal(self.mfi)
+        except IndexError:
+            return np.full(self.mfi.shape, False)

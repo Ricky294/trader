@@ -1,4 +1,4 @@
-from trader_data.core.model import Candles
+from trader.data.model import Candles
 
 from trader.core.indicator import Indicator
 from trader.core.util.vectorized.candlestick import *
@@ -21,10 +21,10 @@ class CandlestickPatterns(Indicator):
         return bearish_candles(self._open_prices, self._close_prices)
 
     def bullish_three_line_strike(self):
-        return bullish_three_line_strike(self._open_prices, self._high_prices, self._low_prices, self._close_prices)
+        return bullish_n_line_strike(self._open_prices, self._high_prices, self._low_prices, self._close_prices)
 
     def bearish_three_line_strike(self):
-        return bearish_three_line_strike(self._open_prices, self._high_prices, self._low_prices, self._close_prices)
+        return bearish_n_line_strike(self._open_prices, self._high_prices, self._low_prices, self._close_prices)
 
     def bullish_engulfing(self):
         return bullish_engulfing(self._open_prices, self._high_prices, self._low_prices, self._close_prices)

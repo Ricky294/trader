@@ -1,5 +1,6 @@
 from .balance import Balance
 from .position import Position
+from .positions import Positions
 from .symbol_info import SymbolInfo
 from .order import (
     Order,
@@ -11,3 +12,5 @@ from .order import (
     StopMarketOrder,
     TrailingStopMarketOrder,
 )
+
+from .orders import Orders

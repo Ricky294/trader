@@ -3,10 +3,10 @@ from __future__ import annotations
 import numpy as np
 import talib
 
-from trader_data.core.model import Candles
-from trader_data.core.enum import OHLCV
+from trader.data.model import Candles
+from trader.data.enum import OHLCV
 
-from trader.core.enum import MA
+from trader.core.enumerate import MA
 from trader.core.util.vectorized.trade import talib_ma
 from trader.core.indicator import Indicator
 
@@ -44,7 +44,7 @@ class KeltnerChannelsIndicator(Indicator):
             timeperiod=self.atr_period,
         )
 
-        self.middle = talib_ma(candles.avg_line(self.line), self.ma_type, self.ma_period)
+        self.middle = talib_ma(candles.average(self.line), self.ma_type, self.ma_period)
         self.upper: np.ndarray = self.middle + self.multiplier * self.atr
         self.lower: np.ndarray = self.middle - self.multiplier * self.atr
 

@@ -1,9 +1,8 @@
 import numpy as np
 
-from trader_data.core.model import Candles
+from trader.data.model import Candles
 
 from trader.core.indicator import Indicator
-from trader.core.util.vectorized.trade import to_heikin_ashi
 
 
 class HeikinAshiIndicator(Indicator):
@@ -16,13 +15,10 @@ class HeikinAshiIndicator(Indicator):
         :param candles: Input data for indicator.
         :return: HAResult - open, high, low, close
         """
-
-        self.ha_open, self.ha_high, self.ha_low, self.ha_close = to_heikin_ashi(
-            open=candles.open_prices,
-            high=candles.high_prices,
-            low=candles.low_prices,
-            close=candles.close_prices,
-        )
+        if candles.meta.get("heikin_ashi"):
+            self.candles = candles
+        else:
+            self.candles = candles.to_heikin_ashi()
 
     def strong_bullish(self) -> np.ndarray:
         """
@@ -32,7 +28,7 @@ class HeikinAshiIndicator(Indicator):
 
         :return: bool numpy array
         """
-        return self.ha_open == self.ha_low
+        return self.candles.open_prices == self.candles.low_prices
 
     def strong_bearish(self) -> np.ndarray:
         """
@@ -42,7 +38,7 @@ class HeikinAshiIndicator(Indicator):
 
         :return: bool numpy array
         """
-        return self.ha_open == self.ha_high
+        return self.candles.open_prices == self.candles.high_prices
 
     def bullish(self) -> np.ndarray:
         """
@@ -52,7 +48,7 @@ class HeikinAshiIndicator(Indicator):
 
         :return: bool numpy array
         """
-        return self.ha_close > self.ha_open
+        return self.candles.close_prices > self.candles.open_prices
 
     def bearish(self) -> np.ndarray:
         """
@@ -62,4 +58,4 @@ class HeikinAshiIndicator(Indicator):
 
         :return: bool numpy array
         """
-        return self.ha_open > self.ha_close
+        return self.candles.open_prices > self.candles.close_prices

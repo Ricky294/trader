@@ -1,8 +1,8 @@
+import nputils as npu
 
-from trader_data.core.model import Candles
+from trader.data.model import Candles
 
 from trader.core.indicator import Indicator
-from trader.core.util.vectorized.trade import support, resistance
 
 
 class SRIndicator(Indicator):
@@ -12,5 +12,5 @@ class SRIndicator(Indicator):
         self.period = period
 
     def __call__(self, candles: Candles):
-        self.support = support(candles.high_prices, self.period)
-        self.resistance = resistance(candles.low_prices, self.period)
+        self.support = npu.bottoms(candles.low_prices, self.period)
+        self.resistance = npu.peaks(candles.high_prices, self.period)

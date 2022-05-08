@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from trader_data.core.model import Candles
-from trader_data.core.enum import OHLCV
+from trader.data.model import Candles
+from trader.data.enum import OHLCV
 
-from trader.core.enum import MA
+from trader.core.enumerate import MA
 from trader.core.indicator import Indicator
 from trader.core.util.vectorized.trade import talib_ma, cross
 
@@ -41,12 +41,12 @@ class DoubleMAIndicator(Indicator):
         """
 
         self.fast_ma = talib_ma(
-            candles.avg_line(self.fast_line),
+            candles.average(self.fast_line),
             type=self.fast_type,
             period=self.fast_period,
         )
         self.slow_ma = talib_ma(
-            candles.avg_line(self.slow_line),
+            candles.average(self.slow_line),
             type=self.slow_type,
             period=self.slow_period,
         )

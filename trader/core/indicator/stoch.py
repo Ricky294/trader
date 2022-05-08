@@ -1,8 +1,8 @@
 import talib
 
-from trader_data.core.model import Candles
+from trader.data.model import Candles
 
-from trader.core.enum import MA
+from trader.core.enumerate import MA
 from trader.core.indicator import Indicator
 from trader.core.util.vectorized.trade import cross
 

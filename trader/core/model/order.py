@@ -3,36 +3,26 @@ from __future__ import annotations
 from trader.core.const.trade_actions import BUY as TA_BUY
 from trader.core.const.trade_actions import SELL as TA_SELL
 
-from trader.core.enum import OrderSide, OrderType, TimeInForce
+from trader.core.enumerate import OrderSide, OrderType, TimeInForce
 
 from trader.core.util.common import round_down
-from trader.core.util.trade import opposite_side, int_side_to_str
+from trader.core.util.trade import opposite_side, side_to_buy_sell
 from trader.config import MONEY_PRECISION
 
 
 class Order:
 
     __slots__ = (
-        "order_id",
-        "status",
-        "symbol",
-        "type",
-        "side",
-        "money",
-        "price",
-        "stop_price",
-        "close_position",
-        "time_in_force",
-        "reduce_only",
-        "activation_price",
-        "trailing_rate",
+        "order_id", "status", "symbol", "type", "side",
+        "money", "quantity", "price", "stop_price", "close_position",
+        "time_in_force", "reduce_only", "activation_price", "trailing_rate",
     )
 
     def __str__(self):
         return (
             f"Order (type: {self.type}, "
             f"money: {self.money:.{MONEY_PRECISION}f}, "
-            f"side: {int_side_to_str(self.side)})"
+            f"side: {side_to_buy_sell(self.side)})"
         )
 
     def __init__(
@@ -40,6 +30,7 @@ class Order:
             symbol: str,
             type: OrderType | str,
             side: OrderSide | str | int,
+            quantity: float = None,
             money: float = None,
             order_id: int = None,
             status: str = None,
@@ -66,6 +57,7 @@ class Order:
         self.symbol = symbol
         self.type = str(type)
         self.money = money
+        self.quantity = quantity
         self.price = price
         self.stop_price = stop_price
         self.trailing_rate = trailing_rate
@@ -76,7 +68,13 @@ class Order:
         self.order_id = order_id
         self.status = status
 
-    def is_taker(self):
+    @property
+    def is_taker(self) -> bool:
+        """
+        True if order type is MARKET, false if LIMIT.
+
+        :return: bool
+        """
         return self.price is None
 
     def side_as_str(self):
@@ -86,7 +84,7 @@ class Order:
         return opposite_side(self.side)
 
     def to_binance_order(self, quantity: float, price_precision: int, quantity_precision: int):
-        order = dict(symbol=self.symbol, type=str(self.type).upper(), side=int_side_to_str(self.side))
+        order = dict(symbol=self.symbol, type=str(self.type).upper(), side=side_to_buy_sell(self.side))
         if self.money is not None:
             order["quantity"] = round_down(quantity, quantity_precision)
         if self.price is not None:
@@ -147,6 +145,7 @@ class Order:
             symbol: str,
             side: OrderSide | str | int,
             money: float,
+            quantity: float,
             reduce_only=False,
             order_id=None,
             status: str = None,
@@ -155,6 +154,7 @@ class Order:
             symbol=symbol,
             side=side,
             money=money,
+            quantity=quantity,
             reduce_only=reduce_only,
             order_id=order_id,
             status=status
@@ -165,6 +165,7 @@ class Order:
             symbol: str,
             side: OrderSide | str | int,
             money: float,
+            quantity: float,
             price: float,
             time_in_force: TimeInForce | str = "GTC",
             reduce_only=False,
@@ -175,6 +176,7 @@ class Order:
             symbol=symbol,
             side=side,
             money=money,
+            quantity=quantity,
             price=price,
             time_in_force=time_in_force,
             reduce_only=reduce_only,
@@ -302,6 +304,7 @@ class MarketOrder(Order):
             symbol: str,
             side: OrderSide | str | int,
             money: float,
+            quantity: float,
             order_id=None,
             status: str = None,
             reduce_only=False,
@@ -310,6 +313,7 @@ class MarketOrder(Order):
             symbol=symbol,
             side=side,
             type=OrderType.MARKET,
+            quantity=quantity,
             money=money,
             reduce_only=reduce_only,
             order_id=order_id,
@@ -324,6 +328,7 @@ class LimitOrder(Order):
             symbol: str,
             side: OrderSide | str | int,
             money: float,
+            quantity: float,
             price: float,
             order_id=None,
             status: str = None,
@@ -336,12 +341,12 @@ class LimitOrder(Order):
             status=status,
             symbol=symbol,
             side=side,
+            quantity=quantity,
             type=OrderType.LIMIT,
             time_in_force=time_in_force,
             money=money,
             price=price,
             reduce_only=reduce_only,
-
         )
 
     @property
