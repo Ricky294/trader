@@ -1,8 +1,10 @@
 import numpy as np
 import talib
 
-from trader_data.core.model import Candles
-from trader_data.core.enum import OHLCV
+import nputils as npu
+
+from trader.data.model import Candles
+from trader.data.enum import OHLCV
 
 from trader.core.util.vectorized.trade import cross
 from trader.core.indicator import Indicator
@@ -31,7 +33,7 @@ class RSIIndicator(Indicator):
 
         :return: RSIResult - rsi
         """
-        self.rsi = talib.RSI(candles.avg_line(self.line), timeperiod=self.period)
+        self.rsi = talib.RSI(candles.average(self.line), timeperiod=self.period)
 
     def above50(self) -> np.ndarray:
         """
@@ -134,9 +136,9 @@ class RSIIndicator(Indicator):
         :return: bool numpy array
         """
         try:
-            return self.overbought() & (self.rsi[-1] < self.rsi[-2])
+            return self.overbought() & npu.peak_reversal(self.rsi)
         except IndexError:
-            return np.full(self.rsi.shape[0], False)
+            return np.full(self.rsi.shape, False)
 
     def oversold_reversal(self) -> np.ndarray:
         """
@@ -147,6 +149,6 @@ class RSIIndicator(Indicator):
         :return: bool numpy array
         """
         try:
-            return self.oversold() & (self.rsi[-1] > self.rsi[-2])
+            return self.oversold() & npu.bottom_reversal(self.rsi)
         except IndexError:
-            return np.full(self.rsi.shape[0], False)
+            return np.full(self.rsi.shape, False)

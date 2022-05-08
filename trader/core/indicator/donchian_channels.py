@@ -1,7 +1,8 @@
-from trader_data.core.model import Candles
+import nputils as npu
+
+from trader.data.model import Candles
 
 from trader.core.indicator import Indicator
-from trader.core.util.vectorized.common import local_min, local_max
 
 
 class DonchianChannelsIndicator(Indicator):
@@ -11,8 +12,8 @@ class DonchianChannelsIndicator(Indicator):
 
     def __call__(self, candles: Candles):
         self._candles = candles
-        self.lower_channel = local_min(candles.low_prices, self.period)
-        self.upper_channel = local_max(candles.high_prices, self.period)
+        self.lower_channel = npu.min_over_period(candles.low_prices, self.period)
+        self.upper_channel = npu.max_over_period(candles.high_prices, self.period)
         self.middle_channel = (self.upper_channel + self.lower_channel) / 2
 
     def price_touches_upper_channel(self):

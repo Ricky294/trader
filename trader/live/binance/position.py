@@ -4,10 +4,10 @@ from binance.client import Client
 
 from trader.core.exception import PositionError
 from trader.core.const.trade_actions import LONG, SHORT
-from trader.core.enum import TimeInForce
+from trader.core.enumerate import TimeInForce
 from trader.core.model import Position
 from trader.core.util.common import round_down
-from trader.core.util.trade import opposite_side, int_side_to_str
+from trader.core.util.trade import opposite_side, side_to_buy_sell
 
 
 class BinancePosition(Position):
@@ -20,15 +20,15 @@ class BinancePosition(Position):
         if quantity == .0:
             raise PositionError(f"No open {data['symbol']!r} position.")
 
-        super(BinancePosition, self).__init__(
-            entry_time=data["updateTime"],
+        super().__init__(
             symbol=data["symbol"],
-            leverage=int(data["leverage"]),
+            entry_time=data["updateTime"],
             entry_price=float(data["entryPrice"]),
             money=float(data["positionInitialMargin"]),
+            quantity=quantity,
             side=LONG if quantity > .0 else SHORT,
+            leverage=int(data["leverage"]),
         )
-        self.quantity = quantity
         self.__profit = float(data["unrealizedProfit"])
 
     def profit(self) -> float:
@@ -42,7 +42,7 @@ def stop_loss_market(
         price_precision: int,
 ):
     stop_price = round_down(stop_price, price_precision)
-    side = int_side_to_str(opposite_side(position.side))
+    side = side_to_buy_sell(opposite_side(position.side))
 
     client.futures_create_order(
         symbol=position.symbol,
@@ -60,7 +60,7 @@ def take_profit_market(
         price_precision: int,
 ):
     stop_price = round_down(stop_price, price_precision)
-    side = int_side_to_str(opposite_side(position.side))
+    side = side_to_buy_sell(opposite_side(position.side))
 
     client.futures_create_order(
         symbol=position.symbol,
@@ -79,7 +79,7 @@ def close_position_limit(
         time_in_force: TimeInForce | str = "GTC",
 ):
     price = round_down(price, price_precision)
-    side = int_side_to_str(opposite_side(position.side))
+    side = side_to_buy_sell(opposite_side(position.side))
     time_in_force = str(time_in_force)
 
     client.futures_create_order(
@@ -97,7 +97,7 @@ def close_position_market(
         client: Client,
         position: BinancePosition,
 ):
-    side = int_side_to_str(opposite_side(position.side))
+    side = side_to_buy_sell(opposite_side(position.side))
     client.futures_create_order(
         symbol=position.symbol,
         type="MARKET",

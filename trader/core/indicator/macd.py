@@ -1,8 +1,8 @@
 import numpy as np
 import talib
 
-from trader_data.core.enum import OHLCV
-from trader_data.core.model import Candles
+from trader.data.enum import OHLCV
+from trader.data.model import Candles
 
 from trader.core.indicator import Indicator
 from trader.core.util.vectorized.trade import cross
@@ -40,7 +40,7 @@ class MACDIndicator(Indicator):
         """
 
         self.macd, self.signal, self.histogram = talib.MACD(
-            candles.avg_line(self.line),
+            candles.average(self.line),
             fastperiod=self.fast_period,
             slowperiod=self.slow_period,
             signalperiod=self.signal_period,
@@ -180,4 +180,3 @@ class MACDIndicator(Indicator):
         """
 
         return cross(self.macd < self.signal)
-

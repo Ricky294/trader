@@ -1,0 +1,16 @@
+/* restyle radio items */
+.radio-group .form-check {
+  padding-left: 0;
+  margin: 0.5em 0.5em 0.5em 0;
+}
+
+.radio-group .btn-group > .form-check:not(:last-child) > .btn {
+  border-radius: 10;
+  font-size: 0.8em;
+}
+
+.radio-group .btn-group > .form-check:not(:first-child) > .btn {
+  border-radius: 10;
+  margin-left: 0px;
+  font-size: 0.8em;
+}

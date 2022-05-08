@@ -1,10 +1,10 @@
 import numpy as np
 import talib
 
-from trader_data.core.model import Candles
-from trader_data.core.enum import OHLCV
+from trader.data.model import Candles
+from trader.data.enum import OHLCV
 
-from trader.core.enum import MA
+from trader.core.enumerate import MA
 from trader.core.indicator import Indicator
 
 
@@ -35,7 +35,7 @@ class BBANDSIndicator(Indicator):
         """
 
         self.__candles = candles
-        data_line = candles.avg_line(OHLCV.HIGH_PRICE, OHLCV.LOW_PRICE, OHLCV.CLOSE_PRICE)
+        data_line = candles.average(OHLCV.HIGH_PRICE, OHLCV.LOW_PRICE, OHLCV.CLOSE_PRICE)
 
         self.upper_band, self.middle_band, self.lower_band = talib.BBANDS(
             data_line,

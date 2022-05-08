@@ -1,4 +1,4 @@
-git+https://github.com/Ricky294/trader_data.git@master
+git+https://github.com/Ricky294/nputils.git
 numpy
 scipy
 pandas

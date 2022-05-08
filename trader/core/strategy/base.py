@@ -5,20 +5,21 @@ from abc import ABC, abstractmethod
 from typing import Callable, Iterable
 
 from tqdm import trange
-from trader_data.binance import candle_stream
-from trader_data.core.model import Candles
+from trader.data.binance import candle_stream
+from trader.data.model import Candles
 
 from trader.config import MONEY_PRECISION
-from trader.backtest import BacktestFuturesTrader, CustomGraph, TradeResultFigure, get_backtest_logger
-from trader.core.enum import Candlestick, Volume, TimeInForce, OrderSide, Mode
+from trader.backtest import BacktestFuturesTrader, get_backtest_logger
+from trader.core.enumerate import TimeInForce, OrderSide, Mode
 from trader.core.exception import TraderException
 from trader.core.indicator import Indicator
-
 from trader.core.interface import FuturesTrader
 from trader.core.log import get_core_logger
-from trader.core.model import Balance, Position, Order
 from trader.live.log import get_live_logger
 from trader.live.binance import BinanceFuturesTrader
+
+from trader.ui import UIApp, CustomGraph
+from trader.ui.enumerate import Candlestick, Volume
 
 
 class Strategy(Callable, ABC):
@@ -58,30 +59,25 @@ class Strategy(Callable, ABC):
             f"Final balance: {self.trader.balance.free:.{MONEY_PRECISION}f} {self.trader.balance.asset}"
         )
 
-    def plot_backtest(
+    def plot_results(
             self,
-            candlestick_type=Candlestick.LINE,
-            volume_type=Volume.LINE,
-            custom_graphs: Iterable[CustomGraph | Indicator] = (),
+            candlestick_type: Candlestick = Candlestick.LINE,
+            volume_type: Volume = Volume.LINE,
+            custom_graphs: Iterable[CustomGraph | Indicator] = ()
     ):
+
         if not isinstance(self.trader, BacktestFuturesTrader):
             raise TraderException("Strategy can be plotted only if trader is instance of BacktestFuturesTrader")
 
-        tc = TradeResultFigure(
+        UIApp(
             candles=self.candles,
             positions=self.trader.positions,
-            start_cash=self.trader.start_balance.free,
+            start_cash=self.trader.start_balance.free
+        ).run_ui_app(
+            candlestick_type=candlestick_type,
+            volume_type=volume_type,
+            custom_graphs=custom_graphs
         )
-        tc.add_capital_graph()
-        tc.add_profit_graph()
-        tc.add_candlestick_graph(candlestick_type=candlestick_type, volume_type=volume_type)
-
-        for custom_graph in custom_graphs:
-            if isinstance(custom_graph, CustomGraph):
-                tc.add_custom_graph(custom_graph)
-            elif isinstance(custom_graph, Indicator):
-                tc.add_indicator_graph(custom_graph)
-        tc.show()
 
     def create_position(
             self,
@@ -90,8 +86,8 @@ class Strategy(Callable, ABC):
             side: int | OrderSide,
             leverage: int,
             price: float | None = None,
-            take_profit_price: float | None = None,
-            stop_loss_price: float | None = None
+            profit_price: float | None = None,
+            stop_price: float | None = None
     ):
         orders = self.trader.create_position(
             symbol=symbol,
@@ -99,41 +95,38 @@ class Strategy(Callable, ABC):
             side=side,
             leverage=leverage,
             price=price,
-            take_profit_price=take_profit_price,
-            stop_loss_price=stop_loss_price,
+            profit_price=profit_price,
+            stop_price=stop_price,
         )
         return orders
 
-    def cancel_orders(self, symbol: str) -> list[Order]:
+    def cancel_orders(self, symbol: str):
         orders = self.trader.cancel_orders(symbol)
         return orders
 
-    def get_open_orders(self, symbol: str) -> list[Order]:
+    def get_open_orders(self, symbol: str):
         orders = self.trader.get_open_orders(symbol)
         return orders
 
-    def set_leverage(self, symbol: str, leverage: int) -> None:
+    def set_leverage(self, symbol: str, leverage: int):
         self.trader.set_leverage(symbol=symbol, leverage=leverage)
 
     def close_position(self, symbol: str, price: float = None, time_in_force: str | TimeInForce = "GTC"):
         self.trader.close_position(symbol=symbol, price=price, time_in_force=time_in_force)
 
-    def close_position_limit(self, symbol: str, price: float, time_in_force: str | TimeInForce = "GTC") -> Order:
+    def close_position_limit(self, symbol: str, price: float, time_in_force: str | TimeInForce = "GTC"):
         order = self.trader.close_position_limit(symbol=symbol, price=price, time_in_force=time_in_force)
         return order
 
-    def close_position_market(self, symbol: str) -> Order:
+    def close_position_market(self, symbol: str):
         order = self.trader.close_position_market(symbol=symbol)
         return order
 
-    def get_position(self, symbol: str) -> Position | None:
+    def get_position(self, symbol: str):
         position = self.trader.get_position(symbol)
         return position
 
-    def get_latest_price(self, symbol: str) -> float:
-        return self.trader.get_latest_price(symbol)
-
-    def get_balance(self, asset: str) -> Balance | None:
+    def get_balance(self, asset: str):
         balance = self.trader.get_balance(asset)
         return balance
 
@@ -165,7 +158,7 @@ def __run_bot_from_arg_list(args):
     plot_params: BacktestPlotParams = args[2]
 
     strategy.run()
-    strategy.plot_backtest(**plot_params.__dict__)
+    strategy.plot_results(**plot_params.__dict__)
 
 
 def backtest_multiple_strategies(

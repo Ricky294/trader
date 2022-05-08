@@ -1,149 +1,268 @@
+"""Implements core trading utility functions.
+
+Functions:
+    * side_to_int - Converts parameter `side` to its int representation.
+    * side_to_buy_sell - Converts parameter `side` to str 'BUY' or 'SELL'.
+    * side_to_long_short - Converts parameter `side` to str 'LONG' or 'SHORT'.
+    * opposite_side - Converts parameter `side` to its opposite (e.g. BUY --> SELL).
+    * create_orders - Creates Order objects based on the parameters.
+"""
+
 from __future__ import annotations
 
-from trader.core.const.trade_actions import BUY, SELL
-from trader.core.enum import OrderSide
+from trader.core.const.trade_actions import BUY, SELL, LONG, SHORT
+from trader.core.enumerate import OrderSide
 
 
-def str_side_to_int(side: str):
-    if side.upper() in ("BUY", "LONG"):
-        return BUY
-    elif side.upper() in ("SELL", "SHORT"):
-        return SELL
-    else:
-        raise ValueError("Side must be BUY, SELL, LONG or SHORT.")
+def side_to_int(side: int | str | OrderSide):
+    """
+    Converts `side` to int
+
+    :examples:
+    >>> side_to_int(BUY) == BUY == LONG
+    True
+
+    >>> side_to_int("LONG") == BUY == LONG
+    True
+
+    >>> side_to_int("SHORT") == SELL == SHORT
+    True
+
+    >>> side_to_int(OrderSide.SELL) == SELL == SHORT
+    True
+    """
+
+    if isinstance(side, int):
+        if side in (BUY, SELL):
+            return side
+        raise ValueError(f"Param `side` (type: int) must be {BUY} or {SELL}")
+
+    elif isinstance(side, str):
+        if side.upper() in ("BUY", "LONG"):
+            return BUY
+        elif side.upper() in ("SELL", "SHORT"):
+            return SELL
+        raise ValueError("Param `side` (type: str) must be BUY, SELL, LONG or SHORT.")
+
+    elif isinstance(side, OrderSide):
+        return int(side)
+
+    raise ValueError(f"Unsupported type for side: {type(side)}")
 
 
-def int_side_to_str(side: int):
+def side_to_buy_sell(side: int | str | OrderSide):
+    """
+    Converts parameter to 'BUY' or 'SELL' (str).
+
+    :examples:
+    >>> side_to_buy_sell("SHORT")
+    'SELL'
+
+    >>> side_to_buy_sell(BUY)
+    'BUY'
+
+    >>> side_to_buy_sell(OrderSide.LONG)
+    'BUY'
+
+    :return: str ('BUY' | 'SELL')
+    :raises ValueError: If param side is invalid.
+    """
+
+    if isinstance(side, str):
+        if side.upper() in ("SHORT", "SELL"):
+            return "SELL"
+        elif side.upper() in ("LONG", "BUY"):
+            return "BUY"
+        else:
+            raise ValueError(f"Invalid side value: {side!r}")
+
+    side = int(side)
     if side == BUY:
         return "BUY"
     elif side == SELL:
         return "SELL"
-    else:
-        raise ValueError(f"Side must be {BUY} or {SELL}.")
+    raise ValueError(f"Side must be {BUY!r} or {SELL!r}.")
 
 
-def opposite_side(side: OrderSide | int):
-    if int(side) == BUY:
-        return SELL
-    elif int(side) == SELL:
-        return BUY
-    else:
-        raise ValueError(f"Side must be {BUY} or {SELL}.")
+def side_to_long_short(side: int | str | OrderSide):
+    """
+    Converts parameter to 'LONG' or 'SHORT' (str).
+
+    :examples:
+    >>> side_to_long_short("SELL")
+    'SHORT'
+
+    >>> side_to_long_short(LONG)
+    'LONG'
+
+    >>> side_to_long_short(OrderSide.BUY)
+    'LONG'
+
+    :return: str ('LONG' | 'SHORT')
+    :raises ValueError: If param side is invalid.
+    """
+    if isinstance(side, str):
+        if side.upper() in ("SHORT", "SELL"):
+            return "SHORT"
+        elif side.upper() in ("LONG", "BUY"):
+            return "LONG"
+        else:
+            raise ValueError(f"Invalid side value: {side!r}")
+
+    side = int(side)
+    if side == BUY:
+        return "LONG"
+    elif side == SELL:
+        return "SHORT"
+    raise ValueError(f"Side must be {LONG!r} or {SHORT!r}.")
 
 
-def get_side_by_quantity(quantity: float | int):
-    return BUY if quantity > 0 else SELL
+def opposite_side(side: int | str | OrderSide):
+    """
+    Returns the opposite side.
+
+    Returned type = input parameter type.
+
+    :examples:
+    >>> opposite_side("BUY")
+    'SELL'
+
+    >>> opposite_side("SELL")
+    'BUY'
+
+    >>> opposite_side(OrderSide.SHORT) == OrderSide.LONG
+    True
+
+    >>> opposite_side(OrderSide.BUY) == OrderSide.SELL
+    True
+    """
+
+    if isinstance(side, int):
+        if side == BUY:
+            return SELL
+        elif side == SELL:
+            return BUY
+        raise ValueError(f"Side must be {BUY} or {SELL}, not {side}.")
+
+    elif isinstance(side, str):
+        if side.upper() == "LONG":
+            return "SHORT"
+        elif side.upper() == "SHORT":
+            return "LONG"
+        elif side.upper() == "BUY":
+            return "SELL"
+        elif side.upper() == "SELL":
+            return "BUY"
+        else:
+            raise ValueError(f"Side must be BUY SELL LONG or SHORT, not {side}.")
+
+    elif isinstance(side, OrderSide):
+        return side.opposite()
 
 
-def calculate_money(price: float, quantity: float, leverage: int):
-    return price * quantity * leverage
-
-
-def reduce_quantity_with_fee(quantity: float, fee_rate: float):
-    return quantity - calculate_quantity_fee(quantity=quantity, fee_rate=fee_rate)
-
-
-def calculate_quantity_fee(quantity: float, fee_rate: float):
-    return quantity * fee_rate
-
-
-def reduce_money_with_fee(price: float, quantity: float, fee_rate: float, leverage: int):
-    money = calculate_money(price=price, quantity=quantity, leverage=leverage)
-    return money - (money * fee_rate * leverage)
-
-
-def calculate_money_fee(money: float, fee_rate: float, leverage: int):
-    return abs(money * fee_rate * leverage)
-
-
-def calculate_quantity(
-        side: int,
-        balance: float,
+def position_quantity(
+        amount: float,
         price: float,
-        trade_ratio: float,
-        leverage: int = 1,
+        leverage: int,
 ):
-    quantity = balance / price * trade_ratio * leverage
-    return quantity if side == BUY else -quantity
+    """
+    Calculates position quantity.
+
+    :param amount: Asset amount to spend on position.
+    :param price: Unit share price
+    :param leverage: Applied leverage (positive integer)
+
+    :examples:
+    >>> position_quantity(amount=1000, price=100, leverage=1)
+    10.0
+
+    >>> position_quantity(amount=100, price=1000, leverage=2)
+    0.2
+    """
+
+    quantity = amount / price * leverage
+    return quantity
 
 
-def calculate_profit(entry_price: float, exit_price: float, quantity: float, leverage: int):
-    return abs(entry_price - exit_price) * quantity * leverage
-
-
-def calculate_pnl(
+def liquidation_price(
+        side: int | str | OrderSide,
         entry_price: float,
-        exit_price: float,
         quantity: float,
-        side: OrderSide | int,
-        leverage: int = 1,
+        leverage: int,
+        balance: float,
 ):
     """
-    :return: Tuple of 3: (initial margin, pnl, roe)
+    Calculates liquidation price.
+
+    Liquidation is an automatic procedure that occurs if the reserved margin
+    is no longer sufficient to cover further losses from a position.
+
+    # entry_price: 0.8
+    # quantity: 1000
+    # leverage: 10
+    # side: BUY
+    # balance: 100
+
+    :examples:
+    >>> liquidation_price(side=BUY, entry_price=0.8, quantity=1000, leverage=10, balance=100)
+    0.70458
+    """
+    side = side_to_int(side)
+
+    return entry_price * quantity * leverage / balance
+
+
+def position_profit(side: int | str | OrderSide, entry_price: float, exit_price: float, quantity: float, leverage: int):
+    """
+    Calculates position profit.
+
+    :examples:
+    >>> position_profit(side=LONG, entry_price=100, exit_price=200, quantity=.5, leverage=1)
+    50.0
+
+    >>> position_profit(side=SHORT, entry_price=100, exit_price=200, quantity=.5, leverage=1)
+    -50.0
+
+    >>> position_profit(side=LONG, entry_price=100, exit_price=200, quantity=1, leverage=2)
+    200
     """
 
-    side = str(side).upper()
+    price_change = exit_price - entry_price if side_to_int(side) == LONG else entry_price - exit_price
 
-    if side == BUY:
-        pnl = (exit_price - entry_price) * quantity
-    elif side == SELL:
-        pnl = (entry_price - exit_price) * quantity
-    else:
-        raise ValueError(f"Parameter side must be {BUY} or {SELL}")
-
-    initial_margin = quantity * entry_price / leverage
-    roe = pnl / initial_margin
-
-    return initial_margin, pnl, roe
-
-
-def calculate_target_price(
-        entry_price: float,
-        roe: float,
-        side: OrderSide | str,
-        leverage: int
-):
-    diff = entry_price * roe / leverage
-
-    side = str(side).upper()
-
-    if side == BUY:
-        return entry_price + diff
-    elif side == SELL:
-        return entry_price - diff
+    return price_change * quantity * leverage
 
 
 def create_orders(
         symbol: str,
         money: float,
         side: int | OrderSide,
-        entry_price: float = None,
-        take_profit_price: float = None,
-        stop_loss_price: float = None,
+        price: float = None,
+        profit_price: float = None,
+        stop_price: float = None,
         trailing_stop_rate: float = None,
         trailing_stop_activation_price: float = None,
 ):
     from trader.core.model import Order
 
-    if take_profit_price is not None and stop_loss_price is not None:
+    if profit_price and stop_price:
         if (
-                (side == BUY and take_profit_price <= stop_loss_price)
-                or (side == SELL and take_profit_price >= stop_loss_price)
+                (side == BUY and profit_price <= stop_price)
+                or (side == SELL and profit_price >= stop_price)
         ):
             raise ValueError("Invalid take profit and/or stop loss price.")
 
-    if entry_price is None:
-        entry_order = Order.market(symbol=symbol, side=side, money=money)
+    if price:
+        entry_order = Order.limit(symbol=symbol, side=side, money=money, price=price)
     else:
-        entry_order = Order.limit(symbol=symbol, side=side, money=money, price=entry_price)
+        entry_order = Order.market(symbol=symbol, side=side, money=money)
 
     other_side = opposite_side(side)
     take_profit_order = stop_order = trailing_stop_order = None
-    if take_profit_price is not None:
-        take_profit_order = Order.take_profit_market(symbol=symbol, side=other_side, stop_price=take_profit_price)
-    if stop_loss_price is not None:
-        stop_order = Order.stop_market(symbol=symbol, side=other_side, stop_price=stop_loss_price)
-    if trailing_stop_rate is not None:
+    if profit_price:
+        take_profit_order = Order.take_profit_market(symbol=symbol, side=other_side, stop_price=profit_price)
+    if stop_price:
+        stop_order = Order.stop_market(symbol=symbol, side=other_side, stop_price=stop_price)
+    if trailing_stop_rate:
         trailing_stop_order = Order.trailing_stop_market_order(
             symbol=symbol,
             side=other_side,
@@ -151,4 +270,9 @@ def create_orders(
             activation_price=trailing_stop_activation_price,
         )
 
-    return entry_order, stop_order, take_profit_order, trailing_stop_order
+    return (
+        entry_order,
+        stop_order,
+        take_profit_order,
+        trailing_stop_order,
+    )

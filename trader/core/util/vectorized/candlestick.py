@@ -12,17 +12,8 @@ This module helps you to identify candlestick patterns on numpy arrays:
     - hanging_man
 """
 
-__all__ = (
-    "bullish_candles", "bearish_candles",
-    "consecutive_bullish_candles", "consecutive_bearish_candles",
-    "bullish_engulfing", "bearish_engulfing",
-    "bullish_three_line_strike", "bearish_three_line_strike",
-    "hammer", "hanging_man"
-)
-
 import numpy as np
-
-from trader.core.util.vectorized.common import consecutive_decrease, consecutive_increase, shift
+import nputils as npu
 
 
 def bullish_candles(open: np.ndarray, close: np.ndarray) -> np.ndarray:
@@ -52,7 +43,7 @@ def consecutive_bullish_candles(open: np.ndarray, close: np.ndarray, n: int):
     Returns True where `close` price is greater than `open` price
     after at least `n` consecutive times.
 
-    :param n:
+    :param n: True, where at least n number of consecutive candles are bullish.
     :param open: open prices
     :param close: close prices
     :return: bool numpy array
@@ -74,7 +65,7 @@ def consecutive_bearish_candles(open: np.ndarray, close: np.ndarray, n: int):
     Returns True where `close` price is less than `open` price
     after at least `n` consecutive times.
 
-    :param n:
+    :param n: True, where at least n number of consecutive candles are bearish.
     :param open: open prices
     :param close: close prices
     :return: bool numpy array
@@ -177,11 +168,12 @@ def bearish_engulfing(open: np.ndarray, high: np.ndarray, low: np.ndarray, close
     ))
 
 
-def bullish_three_line_strike(open: np.ndarray, high: np.ndarray, low: np.ndarray, close: np.ndarray):
+def bullish_n_line_strike(open: np.ndarray, high: np.ndarray, low: np.ndarray, close: np.ndarray, n=3):
     """
-    True where 3 consecutive bearish candle makes lower lows
+    True where n consecutive bearish candle makes lower lows
     followed by a candle that closes above the first candle's high.
 
+    :param n: Minimum number of consecutive bearish candles (default: 3)
     :param open: open prices
     :param low: low prices
     :param high: high prices
@@ -189,18 +181,18 @@ def bullish_three_line_strike(open: np.ndarray, high: np.ndarray, low: np.ndarra
     :return: bool numpy array
     """
 
-    bearish_3 = shift(consecutive_bearish_candles(open, close, n=3), 1, fill_value=False)
-    decreasing_lows = consecutive_decrease(low, 2)
-    close_gt_high_3_ago = np.concatenate((np.full(3, False), close[3:] > high[:-3]))
+    bearish_n = npu.shift(consecutive_bearish_candles(open, close, n=n), 1, fill_value=False)
+    decreasing_lows = npu.decrease(low, n-1)
+    close_gt_high_n_ago = np.concatenate((np.full(n, False), close[n:] > high[:-n]))
 
-    stack = np.vstack((decreasing_lows, close_gt_high_3_ago, bearish_3))
+    stack = np.vstack((decreasing_lows, close_gt_high_n_ago, bearish_n))
     result = np.all(stack, axis=0)
     return result
 
 
-def bearish_three_line_strike(open: np.ndarray, high: np.ndarray, low: np.ndarray, close: np.ndarray):
+def bearish_n_line_strike(open: np.ndarray, high: np.ndarray, low: np.ndarray, close: np.ndarray, n=3):
     """
-    True where 3 consecutive bullish candle makes higher highs
+    True where n consecutive bullish candle makes higher highs
     followed by a candle that closes below the first candle's low.
 
     :param open: open prices
@@ -210,20 +202,20 @@ def bearish_three_line_strike(open: np.ndarray, high: np.ndarray, low: np.ndarra
     :return: bool numpy array
     """
 
-    bullish_3 = shift(consecutive_bullish_candles(open, close, n=3), 1, fill_value=False)
-    increasing_highs = consecutive_increase(high, 2)
-    increasing_highs = shift(increasing_highs, 1, fill_value=False)
+    bullish_n = npu.shift(consecutive_bullish_candles(open, close, n=n), 1, fill_value=False)
+    increasing_highs = npu.increase(high, n-1)
+    increasing_highs = npu.shift(increasing_highs, 1, fill_value=False)
     bullish_candles(open, close)
-    close_lt_low_3_ago = np.concatenate((np.full(3, False), close[3:] < low[:-3]))
+    close_lt_low_n_ago = np.concatenate((np.full(n, False), close[n:] < low[:-n]))
 
-    stack = np.vstack((increasing_highs, close_lt_low_3_ago, bullish_3))
+    stack = np.vstack((increasing_highs, close_lt_low_n_ago, bullish_n))
     result = np.all(stack, axis=0)
     return result
 
 
 def hammer(open: np.ndarray, high: np.ndarray, low: np.ndarray, close: np.ndarray, n=2.) -> np.ndarray:
     """
-    Returns True where the lower wick is at least `n` times the height of the body and candle is bullish.
+    Returns True where the lower wick is at least `n` times the height of the body.
 
     Indicates a potential price reversal to the upside.
 
@@ -248,9 +240,9 @@ def hammer(open: np.ndarray, high: np.ndarray, low: np.ndarray, close: np.ndarra
 
 def hanging_man(open: np.ndarray, high: np.ndarray, low: np.ndarray, close: np.ndarray, n=2.) -> np.ndarray:
     """
-    Returns True where the lower wick is at least `n` times the height of the body and candle is bearish.
+    Returns True where the lower wick is at least `n` times the height of the body and previous candle is bullish.
 
-    Indicates a potential price reversal to the upside.
+    Signals short.
 
     :param n: Lower wick body ratio (default=2).
     :param open: open prices
@@ -267,8 +259,8 @@ def hanging_man(open: np.ndarray, high: np.ndarray, low: np.ndarray, close: np.n
     array([ True])
     """
 
-    is_bearish = bearish_candles(open, close)
-    return body_to_lower_wick_ratio(open, low, close, n) & is_bearish
+    shifted_bullish_candles = npu.shift(bullish_candles(open, close), 1, fill_value=False)
+    return body_to_lower_wick_ratio(open, low, close, n) & shifted_bullish_candles
 
 
 def body_to_lower_wick_ratio(open: np.ndarray, low: np.ndarray, close: np.ndarray, n=2.) -> np.ndarray:

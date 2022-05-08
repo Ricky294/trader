@@ -1,8 +1,8 @@
-"""This module provides string formatting functions."""
+"""Implements core utility functions for string and number formatting.
 
-__all__ = (
-    "num", "capitalize", "title", "upper"
-)
+Functions:
+    - num - Formats number parameter with defined precision, percentage or plus sign.
+"""
 
 
 def num(x, /, prec=0, *, perc=False, plus=False):
@@ -18,25 +18,28 @@ def num(x, /, prec=0, *, perc=False, plus=False):
 
     :examples:
     >>> num(10)
-    10
+    '10'
     >>> num(-12345.56789, prec=3, plus=True)
-    -12,345.568
+    '-12,345.568'
     >>> num(3.1415, prec=4, plus=True)
-    +3.1415
+    '+3.1415'
     >>> num(100.12, prec=4, perc=True, plus=True)
-    +10,000.1200%
+    '+10,012.0000%'
     """
     x = float(x)
 
     if perc:
         x *= 100
+        end = "%"
+    else:
+        end = ""
 
     if "." in str(x):
         fmt = "+,." if plus else ",."
-        return f"{x:{fmt}{prec}f}"
+        return f"{x:{fmt}{prec}f}{end}"
 
     fmt = "+," if plus else ","
-    return f"{x:{fmt}}"
+    return f"{x:{fmt}}{end}"
 
 
 def capitalize(var1, var2="", /):

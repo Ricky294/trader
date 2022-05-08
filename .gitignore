@@ -1,6 +1,9 @@
 # Custom ignores
 
 data
+!trader/data
+!examples/data
+!tests/data
 log
 logs
 

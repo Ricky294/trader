@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from trader.backtest.trailing_stop import BacktestTrailingStopMarketOrder
+from trader.backtest.model.trailing_stop import BacktestTrailingStopMarketOrder
 from trader.core.const.trade_actions import BUY, SELL
 from trader.core.model import (
     Order,

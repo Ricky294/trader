@@ -69,8 +69,8 @@ def generate_character_sequence(start: int, end: int):
     return (chr(i) for i in range(start, end))
 
 
-def generate_random_string(chars: str, size: int):
-    return "".join(random.choice(chars) for _ in range(size))
+def generate_random_string(char_set: str, length: int):
+    return "".join(random.choice(char_set) for _ in range(length))
 
 
 def get_object_from_module(module_name: str, object_name: str):

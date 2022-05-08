@@ -3,9 +3,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Callable
 
-from trader_data.core.model import Candles
+from trader.data.model import Candles
 
-from trader.core.enum import OrderSide
+from trader.core.enumerate import OrderSide
 
 
 class SLTPIndicator(ABC, Callable):

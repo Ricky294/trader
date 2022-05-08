@@ -5,7 +5,6 @@ from trader.core.model import StopMarketOrder, TakeProfitMarketOrder, LimitOrder
 
 def test_is_stop_loss_hit():
     # False
-    assert not is_stop_loss_hit(low_price=5, high_price=10, order=None)
     assert not is_stop_loss_hit(low_price=5, high_price=10, order=StopMarketOrder(symbol="", side=SELL, stop_price=2))
     assert not is_stop_loss_hit(low_price=5, high_price=10, order=StopMarketOrder(symbol="", side=BUY, stop_price=20))
 
@@ -17,7 +16,6 @@ def test_is_stop_loss_hit():
 
 def test_is_take_profit_hit():
     # False
-    assert not is_take_profit_hit(low_price=5, high_price=10, order=None)
     assert not is_take_profit_hit(low_price=5, high_price=10, order=TakeProfitMarketOrder(symbol="", side=SELL, stop_price=20))
 
     # True
@@ -83,4 +81,5 @@ def test_get_filled_first():
         take_profit_order=TakeProfitMarketOrder(symbol="", side=SELL, stop_price=160),
         stop_order=StopMarketOrder(symbol="", side=SELL, stop_price=110),
         exit_order=MarketOrder(symbol="", side=SELL, money=500),
-    ).plot_type == "MARKET"
+        trailing_stop_order=None,
+    ).type == "MARKET"

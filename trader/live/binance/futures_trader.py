@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from binance.client import Client
 
-from trader.core.enum import OrderSide, TimeInForce
+from trader.core.enumerate import OrderSide, TimeInForce
 from trader.core.interface import FuturesTrader
 from trader.core.model import Order
 from trader.core.util.trade import create_orders
@@ -95,9 +95,9 @@ class BinanceFuturesTrader(FuturesTrader):
             symbol=symbol,
             money=money,
             side=side,
-            entry_price=price,
-            take_profit_price=take_profit_price,
-            stop_loss_price=stop_loss_price
+            price=price,
+            profit_price=take_profit_price,
+            stop_price=stop_loss_price
         )
 
         info = get_symbol_info(client=self.client, symbol=symbol)
@@ -118,8 +118,6 @@ class BinanceFuturesTrader(FuturesTrader):
 
         for order in orders:
             self.client.futures_create_order(**order)
-
-        # self.client.futures_place_batch_order(batchOrders=orders)
 
     def cancel_orders(self, symbol: str):
         self.client.futures_cancel_all_open_orders(symbol=symbol)
