@@ -4,8 +4,6 @@ import talib
 
 class TALibCandlePatterns:
 
-    __slots__ = ("_ohlc",)
-
     def __init__(self, open: np.ndarray, high: np.ndarray, low: np.ndarray, close: np.ndarray):
         self._ohlc = open, high, low, close
 

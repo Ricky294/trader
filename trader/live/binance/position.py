@@ -16,20 +16,22 @@ class BinancePosition(Position):
             self,
             data: dict,
     ):
-        quantity = float(data["positionAmt"])
+        quantity = float(data['positionAmt'])
         if quantity == .0:
-            raise PositionError(f"No open {data['symbol']!r} position.")
+            raise PositionError(f'No open {data["symbol"]!r} position.')
 
         super().__init__(
-            symbol=data["symbol"],
-            entry_time=data["updateTime"],
-            entry_price=float(data["entryPrice"]),
-            money=float(data["positionInitialMargin"]),
+            symbol=data['symbol'],
+            entry_order_type='Unknown',
+            entry_fee=.0,
+            entry_time=data['updateTime'],
+            entry_price=float(data['entryPrice']),
+            money=float(data['positionInitialMargin']),
             quantity=quantity,
             side=LONG if quantity > .0 else SHORT,
-            leverage=int(data["leverage"]),
+            leverage=int(data['leverage']),
         )
-        self.__profit = float(data["unrealizedProfit"])
+        self.__profit = float(data['unrealizedProfit'])
 
     def profit(self) -> float:
         return self.__profit
@@ -46,10 +48,10 @@ def stop_loss_market(
 
     client.futures_create_order(
         symbol=position.symbol,
-        type="STOP_MARKET",
+        type='STOP_MARKET',
         side=side,
         stopPrice=stop_price,
-        closePosition="true",
+        closePosition='true',
     )
 
 
@@ -64,10 +66,10 @@ def take_profit_market(
 
     client.futures_create_order(
         symbol=position.symbol,
-        type="TAKE_PROFIT_MARKET",
+        type='TAKE_PROFIT_MARKET',
         side=side,
         stopPrice=stop_price,
-        closePosition="true",
+        closePosition='true',
     )
 
 
@@ -76,7 +78,7 @@ def close_position_limit(
         position: BinancePosition,
         price: float,
         price_precision: int,
-        time_in_force: TimeInForce | str = "GTC",
+        time_in_force: TimeInForce | str = 'GTC',
 ):
     price = round_down(price, price_precision)
     side = side_to_buy_sell(opposite_side(position.side))
@@ -84,11 +86,11 @@ def close_position_limit(
 
     client.futures_create_order(
         symbol=position.symbol,
-        type="LIMIT",
+        type='LIMIT',
         side=side,
         quantity=abs(position.quantity),
         price=price,
-        reduceOnly="true",
+        reduceOnly='true',
         timeInForce=str(time_in_force),
     )
 
@@ -100,8 +102,8 @@ def close_position_market(
     side = side_to_buy_sell(opposite_side(position.side))
     client.futures_create_order(
         symbol=position.symbol,
-        type="MARKET",
+        type='MARKET',
         side=side,
         quantity=abs(position.quantity),
-        reduceOnly="true",
+        reduceOnly='true',
     )

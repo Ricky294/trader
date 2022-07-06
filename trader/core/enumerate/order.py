@@ -26,7 +26,7 @@ class OrderSide(Enum):
         elif side == SELL_:
             return cls.SELL
         else:
-            ValueError(f"Parameter 'side' must be {BUY_} or {SELL_}")
+            ValueError(f'Parameter "side" must be {BUY_} or {SELL_}')
 
     @classmethod
     def from_quantity(cls, quantity: float):
@@ -35,7 +35,7 @@ class OrderSide(Enum):
         elif quantity < 0:
             return cls.SELL
         else:
-            raise ValueError("Quantity must not be 0.")
+            raise ValueError('Quantity must not be 0.')
 
     def opposite(self):
         if self.value == BUY_:
@@ -56,8 +56,8 @@ class OrderSide(Enum):
     def __eq__(self, other):
         if isinstance(other, str):
             return (
-                    (other in ("SELL", "SHORT") and self.value == SELL_)
-                    or (other in ("BUY", "LONG") and self.value == BUY_)
+                    (other in ('SELL', 'SHORT') and self.value == SELL_)
+                    or (other in ('BUY', 'LONG') and self.value == BUY_)
             )
         elif isinstance(other, int):
             return other == self.value

@@ -10,11 +10,11 @@ from trader.data.database import CandleStorage
 
 class HDF5CandleStorage(CandleStorage):
 
-    dataset_name = "candles"
+    dataset_name = 'candles'
 
     @staticmethod
     def file_extension():
-        return "h5"
+        return 'h5'
 
     def __init__(
             self,
@@ -37,13 +37,13 @@ class HDF5CandleStorage(CandleStorage):
         data = npu.to_array(data)
         check_ndim_is_2(data)
 
-        with h5.File(self.path, "a") as hf:
+        with h5.File(self.path, 'a') as hf:
             try:
                 dataset = hf[self.dataset_name]
                 if dataset.shape[-1] != data.shape[-1]:
                     raise ValueError(
-                        f"HDF5 dataset and the data to append must have the same shape on the 2nd dimension "
-                        f"(dataset: {dataset.shape[-1]}, data: {data.shape[-1]})."
+                        f'HDF5 dataset and the data to append must have the same shape on the 2nd dimension '
+                        f'(dataset: {dataset.shape[-1]}, data: {data.shape[-1]}).'
                     )
 
                 hf[self.dataset_name].resize((hf[self.dataset_name].shape[0] + data.shape[0]), axis=0)
@@ -58,10 +58,10 @@ class HDF5CandleStorage(CandleStorage):
         :return: numpy array
         :raises FileNotFoundError: If file not exists.
         """
-        with h5.File(self.path, "r") as hf:
+        with h5.File(self.path, 'r') as hf:
             dataset = hf.get(self.dataset_name)
             if dataset is None:
-                raise KeyError(f"Dataset with name: {self.dataset_name} is not found!")
+                raise KeyError(f'Dataset with name: {self.dataset_name} is not found!')
 
             data: np.ndarray = dataset[:]
             return data

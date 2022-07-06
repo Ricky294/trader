@@ -1,7 +1,7 @@
 import numpy as np
 import talib
 
-from trader.data.enum import OHLCV
+from trader.data.enumerate import OHLCV
 from trader.data.model import Candles
 
 from trader.core.indicator import Indicator

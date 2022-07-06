@@ -30,34 +30,34 @@ def num(x, /, prec=0, *, perc=False, plus=False):
 
     if perc:
         x *= 100
-        end = "%"
+        end = '%'
     else:
-        end = ""
+        end = ''
 
-    if "." in str(x):
-        fmt = "+,." if plus else ",."
-        return f"{x:{fmt}{prec}f}{end}"
+    if '.' in str(x):
+        fmt = '+,.' if plus else ',.'
+        return f'{x:{fmt}{prec}f}{end}'
 
-    fmt = "+," if plus else ","
-    return f"{x:{fmt}}{end}"
+    fmt = '+,' if plus else ','
+    return f'{x:{fmt}}{end}'
 
 
-def capitalize(var1, var2="", /):
+def capitalize(var1, var2='', /):
     var1 = str(var1).replace('_', ' ').capitalize()
     if var2:
         return f"{var1} ({var2})"
     return var1
 
 
-def title(var1, var2="", /):
+def title(var1, var2='', /):
     var1 = str(var1).replace('_', ' ').title()
     if var2:
-        return f"{var1} ({var2})"
+        return f'{var1} ({var2})'
     return var1
 
 
-def upper(var1, var2="", /):
+def upper(var1, var2='', /):
     var1 = str(var1).replace('_', ' ').upper()
     if var2:
-        return f"{var1} ({var2})"
+        return f'{var1} ({var2})'
     return var1

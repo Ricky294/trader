@@ -15,7 +15,7 @@ class EntryAnalyzer:
     def __init__(self, candles: Candles, long_entries: np.ndarray, short_entries: np.ndarray, period: int):
         ls_stack = np.vstack((long_entries, short_entries))
         if True in np.all(ls_stack, axis=0):
-            raise ValueError("It is forbidden to have a long and a short entry at the same time!")
+            raise ValueError('It is forbidden to have a long and a short entry at the same time!')
 
         self.candles = candles
         self.long_entries = long_entries
@@ -123,4 +123,3 @@ ea = EntryAnalyzer(
     period=30,
 )
 
-pass

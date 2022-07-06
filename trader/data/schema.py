@@ -4,12 +4,12 @@ class SchemaError(Exception):
         super(SchemaError, self).__init__(*args)
 
 
-OPEN_TIME = "OPEN_TIME"
-OPEN_PRICE = "OPEN_PRICE"
-HIGH_PRICE = "HIGH_PRICE"
-LOW_PRICE = "LOW_PRICE"
-CLOSE_PRICE = "CLOSE_PRICE"
-VOLUME = "VOLUME"
+OPEN_TIME = 'OPEN_TIME'
+OPEN_PRICE = 'OPEN_PRICE'
+HIGH_PRICE = 'HIGH_PRICE'
+LOW_PRICE = 'LOW_PRICE'
+CLOSE_PRICE = 'CLOSE_PRICE'
+VOLUME = 'VOLUME'
 
 SCHEMA_NAMES = (OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE, VOLUME)
 
@@ -24,19 +24,19 @@ NAME_TO_INDEX = {
 
 
 NAME_TO_SHORT_NAME = {
-    OPEN_TIME: "t",
-    OPEN_PRICE: "o",
-    HIGH_PRICE: "h",
-    LOW_PRICE: "l",
-    CLOSE_PRICE: "c",
-    VOLUME: "v",
+    OPEN_TIME: 't',
+    OPEN_PRICE: 'o',
+    HIGH_PRICE: 'h',
+    LOW_PRICE: 'l',
+    CLOSE_PRICE: 'c',
+    VOLUME: 'v',
 }
 
 SHORT_NAME_TO_NAME = {
-    "t": OPEN_TIME,
-    "o": OPEN_PRICE,
-    "h": HIGH_PRICE,
-    "l": LOW_PRICE,
-    "c": CLOSE_PRICE,
-    "v": VOLUME,
+    't': OPEN_TIME,
+    'o': OPEN_PRICE,
+    'h': HIGH_PRICE,
+    'l': LOW_PRICE,
+    'c': CLOSE_PRICE,
+    'v': VOLUME,
 }

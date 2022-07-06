@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 
 from trader.data.binance import get_store_candles
 from trader.data.core import HDF5CandleStorage
-from trader.data.enum import Market
+from trader.data.enumerate import Market
 
 
 class CandlestickPatternPlot:

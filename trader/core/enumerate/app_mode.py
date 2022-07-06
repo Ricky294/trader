@@ -1,6 +1,6 @@
 from enum import Enum
 
 
-class ApplicationMode(Enum):
+class AppMode(Enum):
     BACKTEST = "BACKTEST"
     LIVE = "LIVE"

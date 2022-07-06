@@ -7,7 +7,7 @@ from trader.core.model import TrailingStopMarketOrder
 
 class BacktestTrailingStopMarketOrder(TrailingStopMarketOrder):
 
-    __slots__ = "current_stop", "stopped_at"
+    __slots__ = 'current_stop', 'stopped_at'
 
     def __update_stop_price(self, price: float):
         if self.stopped_at is None:
@@ -27,9 +27,9 @@ class BacktestTrailingStopMarketOrder(TrailingStopMarketOrder):
     ):
         if activation_price is not None:
             if activation_price < current_price and side == SELL:
-                raise ValueError("Order side must be BUY if activation price is below current price.")
+                raise ValueError('Order side must be BUY if activation price is below current price.')
             elif activation_price > current_price and side == BUY:
-                raise ValueError("Order side must be SELL if activation price is above current price.")
+                raise ValueError('Order side must be SELL if activation price is above current price.')
 
         current_or_activation_price = activation_price if activation_price is not None else current_price
         super().__init__(

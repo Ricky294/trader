@@ -5,13 +5,14 @@ from abc import ABC, abstractmethod
 from typing import Callable, Iterable
 
 from tqdm import trange
+
 from trader.data.binance import candle_stream
 from trader.data.model import Candles
 
 from trader.config import MONEY_PRECISION
 from trader.backtest import BacktestFuturesTrader, get_backtest_logger
 from trader.core.enumerate import TimeInForce, OrderSide, Mode
-from trader.core.exception import TraderException
+from trader.core.exception import TraderError
 from trader.core.indicator import Indicator
 from trader.core.interface import FuturesTrader
 from trader.core.log import get_core_logger
@@ -36,7 +37,7 @@ class Strategy(Callable, ABC):
             self.run = self.__binance_run
             self.logger = get_live_logger()
         else:
-            raise TraderException(f"Unsupported trader: {type(trader)}.")
+            raise TraderError(f'Unsupported trader: {type(trader)}.')
 
     @abstractmethod
     def __call__(self, candles: Candles): ...
@@ -46,20 +47,23 @@ class Strategy(Callable, ABC):
 
     def __backtest_run(self):
         if not isinstance(self.trader, BacktestFuturesTrader):
-            raise TraderException(f"Unsupported trader type: {type(self.trader)}")
+            raise TraderError(f'Unsupported trader type: {type(self.trader)}')
 
-        get_core_logger().info(f"Running backtest on {len(self.candles)} candles.")
+        get_core_logger().info(f'Running backtest on {len(self.candles)} candles.')
 
-        for _, data in zip(trange(len(self.candles)), self.candles.replayer()):
-            self.__call__(data)
-            self.trader(data)
+        replayer = self.candles.replayer()
+        candle: Candles = next(replayer)
+        self(candle)
+        for _, candles in zip(trange(len(self.candles)), replayer):
+            self.trader(candles)
+            self(candles)
 
         get_core_logger().info(
-            f"Finished backtesting. Entered {len(self.trader.positions)} positions. "
-            f"Final balance: {self.trader.balance.free:.{MONEY_PRECISION}f} {self.trader.balance.asset}"
+            f'Finished backtesting. Entered {len(self.trader.positions)} positions. '
+            f'Final balance: {self.trader.balances[-1].free:.{MONEY_PRECISION}f} {self.trader.balances[-1].asset}'
         )
 
-    def plot_results(
+    def plot(
             self,
             candlestick_type: Candlestick = Candlestick.LINE,
             volume_type: Volume = Volume.LINE,
@@ -67,12 +71,13 @@ class Strategy(Callable, ABC):
     ):
 
         if not isinstance(self.trader, BacktestFuturesTrader):
-            raise TraderException("Strategy can be plotted only if trader is instance of BacktestFuturesTrader")
+            raise TraderError('Strategy can be plotted only if trader is instance of BacktestFuturesTrader')
 
         UIApp(
             candles=self.candles,
             positions=self.trader.positions,
-            start_cash=self.trader.start_balance.free
+            orders=self.trader.orders,
+            balances=self.trader.balances,
         ).run_ui_app(
             candlestick_type=candlestick_type,
             volume_type=volume_type,
@@ -81,7 +86,7 @@ class Strategy(Callable, ABC):
 
     def create_position(
             self,
-            symbol: str,
+            candles: Candles,
             money: float,
             side: int | OrderSide,
             leverage: int,
@@ -89,8 +94,8 @@ class Strategy(Callable, ABC):
             profit_price: float | None = None,
             stop_price: float | None = None
     ):
-        orders = self.trader.create_position(
-            symbol=symbol,
+        orders = self.trader.enter_position(
+            candles=candles,
             money=money,
             side=side,
             leverage=leverage,
@@ -111,15 +116,15 @@ class Strategy(Callable, ABC):
     def set_leverage(self, symbol: str, leverage: int):
         self.trader.set_leverage(symbol=symbol, leverage=leverage)
 
-    def close_position(self, symbol: str, price: float = None, time_in_force: str | TimeInForce = "GTC"):
-        self.trader.close_position(symbol=symbol, price=price, time_in_force=time_in_force)
+    def close_position(self, candles: Candles, price: float = None, time_in_force: str | TimeInForce = 'GTC'):
+        self.trader.close_position(candles=candles, price=price, time_in_force=time_in_force)
 
-    def close_position_limit(self, symbol: str, price: float, time_in_force: str | TimeInForce = "GTC"):
-        order = self.trader.close_position_limit(symbol=symbol, price=price, time_in_force=time_in_force)
+    def close_position_limit(self, candles: Candles, price: float, time_in_force: str | TimeInForce = 'GTC'):
+        order = self.trader.close_position_limit(candles=candles, price=price, time_in_force=time_in_force)
         return order
 
-    def close_position_market(self, symbol: str):
-        order = self.trader.close_position_market(symbol=symbol)
+    def close_position_market(self, candles: Candles):
+        order = self.trader.close_position_market(candles=candles)
         return order
 
     def get_position(self, symbol: str):
@@ -158,7 +163,7 @@ def __run_bot_from_arg_list(args):
     plot_params: BacktestPlotParams = args[2]
 
     strategy.run()
-    strategy.plot_results(**plot_params.__dict__)
+    strategy.plot(**plot_params.__dict__)
 
 
 def backtest_multiple_strategies(
@@ -166,7 +171,7 @@ def backtest_multiple_strategies(
         plot_params: list[BacktestPlotParams],
 ):
     if len(strategies) != len(plot_params):
-        raise ValueError("Parameter lists has different lengths.")
+        raise ValueError('Parameter lists has different lengths.')
 
     with concurrent.futures.ProcessPoolExecutor() as executor:
         executor.map(

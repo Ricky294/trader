@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import operator
 import os
 import pathlib
 import random
@@ -40,25 +39,117 @@ def read_yaml(*path):
 
 
 def read_config(path: str) -> dict:
+    """Reads a json or a yaml file."""
     extension = pathlib.Path(path).suffix
-    if "yaml" in extension:
+    if 'yaml' in extension:
         return read_yaml(path)
-    if "json" in extension:
+    if 'json' in extension:
         return read_json(path)
 
 
 def round_down(number: float | int | None, precision: int):
+    """
+    Rounds down the `number` by a number of `precision` points (truncates value).
+
+    :examples:
+    >>> round_down(1, precision=2)
+    1.0
+
+    >>> round_down(1.1, precision=1)
+    1.1
+
+    >>> round_down(1.9999, precision=2)
+    1.99
+    """
+
     if number is None:
         return
 
     s = str(number)
-    if "." not in s:
+    if '.' not in s:
         return float(number)
 
-    return float(s[: s.find(".") + precision + 1])
+    return float(s[: s.find('.') + precision + 1])
+
+
+def all_empty(values: Iterable):
+    """
+    Returns True if all `values` are 0, None or empty string.
+
+    :examples:
+    >>> all_empty(['0.0', '0', .0, None, ''])
+    True
+
+    >>> all_empty(['5', 'xy', '', None])
+    False
+
+    >>> all_empty([False, 'false', 'False'])
+    False
+
+    """
+
+    for value in values:
+        try:
+            if value in ['', None]:
+                continue
+            elif float(value) != .0:
+                return False
+        except (ValueError, TypeError):
+            return False
+
+    return True
+
+
+def all_zero(values: Iterable):
+    """
+    Returns True if all the `values` are 0.
+
+    :examples:
+    >>> all_zero(['0.0', '0', 0.0, 0])
+    True
+
+    >>> all_zero(['x', '0', None])
+    False
+    """
+
+    for value in values:
+        try:
+            if float(value) != .0:
+                return False
+        except (ValueError, TypeError):
+            return False
+    return True
+
+
+def all_none(values: Iterable):
+    """
+    Returns True if all the `values` are None.
+
+    :examples:
+    >>> all_none([1, 2, None])
+    False
+
+    >>> all_none([None, None, None])
+    True
+    """
+
+    for value in values:
+        if value is not None:
+            return False
+    return True
 
 
 def remove_none(data: Iterable):
+    """
+    Removes all None values from `data`.
+
+    :param data: Iterable
+    :return: dict | list
+
+    :examples:
+    >>> remove_none([1, 2, None, 3, 4, None])
+    [1, 2, 3, 4]
+    """
     if isinstance(data, dict):
         return {k: v for k, v in data.items() if v is not None}
 
@@ -70,7 +161,7 @@ def generate_character_sequence(start: int, end: int):
 
 
 def generate_random_string(char_set: str, length: int):
-    return "".join(random.choice(char_set) for _ in range(length))
+    return ''.join(random.choice(char_set) for _ in range(length))
 
 
 def get_object_from_module(module_name: str, object_name: str):
@@ -79,25 +170,3 @@ def get_object_from_module(module_name: str, object_name: str):
     module = importlib.import_module(module_name)
 
     return getattr(module, object_name)
-
-
-logical_operators = {
-    ">": operator.gt,
-    "<": operator.lt,
-    ">=": operator.ge,
-    "<=": operator.le,
-    "==": operator.eq,
-    "!=": operator.ne,
-    "gt": operator.gt,
-    "lt": operator.lt,
-    "ge": operator.ge,
-    "le": operator.le,
-    "eq": operator.eq,
-    "ne": operator.ne,
-}
-
-
-def compare(left_value, logical_operator: str | Callable[[any, any], any], right_value, /):
-    if isinstance(logical_operator, str):
-        return logical_operators[logical_operator](left_value, right_value)
-    return logical_operator(left_value, right_value)
