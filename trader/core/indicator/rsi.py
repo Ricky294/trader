@@ -4,7 +4,7 @@ import talib
 import nputils as npu
 
 from trader.data.model import Candles
-from trader.data.enum import OHLCV
+from trader.data.enumerate import OHLCV
 
 from trader.core.util.vectorized.trade import cross
 from trader.core.indicator import Indicator
@@ -136,7 +136,7 @@ class RSIIndicator(Indicator):
         :return: bool numpy array
         """
         try:
-            return self.overbought() & npu.peak_reversal(self.rsi)
+            return self.overbought() & npu.peaks(self.rsi, n=1)
         except IndexError:
             return np.full(self.rsi.shape, False)
 
@@ -149,6 +149,6 @@ class RSIIndicator(Indicator):
         :return: bool numpy array
         """
         try:
-            return self.oversold() & npu.bottom_reversal(self.rsi)
+            return self.oversold() & npu.bottoms(self.rsi, n=1)
         except IndexError:
             return np.full(self.rsi.shape, False)

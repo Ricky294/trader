@@ -10,7 +10,7 @@ from trader.data.binance import (
     TAKER_BUY_BASE_ASSET_VOLUME, TAKER_BUY_QUOTE_ASSET_VOLUME
 )
 
-from trader.data.enum import Market
+from trader.data.enumerate import Market
 from trader.data.model import Candles
 
 
@@ -59,7 +59,7 @@ class BinanceCandles(Candles):
         )
 
     def update(self):
-        latest_open = self.open_times[-1] + 1
+        latest_open = self.times[-1] + 1
 
         missing_candles = get_candles_as_array(
             symbol=self.symbol,

@@ -3,9 +3,10 @@ from __future__ import annotations
 import copy
 from typing import Callable
 
+from trader.core.util.common import remove_none
 from trader.data.model import Candles
 
-from trader.core.model import Orders, MarketOrder, LimitOrder
+from trader.core.model import OrderGroup, MarketOrder, LimitOrder, Order
 from trader.core.exception import PositionError, BalanceError
 from trader.core.enumerate import OrderSide, TimeInForce
 from trader.core.interface import FuturesTrader
@@ -29,15 +30,16 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
         """
         super().__init__()
 
-        self.start_balance = copy.deepcopy(balance)
-        self.balance = balance
+        self.start_balance = balance
+        self.balances = [balance]
 
         self.maker_fee_rate = maker_fee_rate
         self.taker_fee_rate = taker_fee_rate
 
         self.positions: list[BacktestPosition] = []
 
-        self.orders: Orders | None = None
+        self.orders: list[Order] = []
+        self.order_group: OrderGroup | None = None
         self._leverage: int | None = None
 
         self.position: BacktestPosition | None = None
@@ -51,39 +53,52 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
         return self.position is None
 
     def __call__(self, candles: Candles):
-        if self.orders:
+        if self.order_group:
             if self.in_position:
                 self.position.liquidation_check(
                     low_price=candles.latest_low_price,
                     high_price=candles.latest_high_price,
-                    balance=self.balance.free,
+                    balance=self.balances[-1].free,
                 )
-                self.position.update_profit(close_price=candles.latest_close_price)
+                self.position.update(latest_price=candles.latest_close_price)
                 self.__exit_logic(candles=candles)
             else:
                 self.__entry_logic(candles=candles)
+
+    def __create_position(self, time: int | float, price: float, order: Order):
+        return BacktestPosition(
+            symbol=order.symbol,
+            side=order.side,
+            money=order.money,
+            quantity=order.quantity,
+            leverage=self._leverage,
+            entry_order_type=order.type,
+            entry_time=int(time),
+            entry_price=price,
+            entry_fee=self.taker_fee_rate if order.is_taker else self.maker_fee_rate,
+        )
 
     def __entry_logic(
             self,
             candles: Candles,
     ):
+
         if is_order_filled(
                 high_price=candles.latest_high_price,
                 low_price=candles.latest_low_price,
-                order=self.orders.entry_order
+                order=self.order_group.entry_order
         ):
             # Calculate fee
 
-            self.position = BacktestPosition(
-                symbol=self.orders.entry_order.symbol,
-                side=self.orders.entry_order.side,
-                money=self.orders.entry_order.money,
-                leverage=self._leverage,
-                entry_time=int(candles.latest_open_time),
-                entry_price=candles.latest_close_price if self.orders.entry_order.is_taker else self.orders.entry_order.price,
-                entry_fee=self.taker_fee_rate if self.orders.entry_order.is_taker else self.maker_fee_rate,
+            time = candles.latest_time
+            price = candles.latest_open_price if self.order_group.entry_order.is_taker else self.order_group.entry_order.price
+
+            self.position = self.__create_position(
+                time=time,
+                price=price,
+                order=self.order_group.entry_order
             )
-            self.orders.entry_order = None
+            self.order_group.entry_order = None
 
     def __exit_logic(
             self,
@@ -93,14 +108,16 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
             high_price=candles.latest_high_price,
             low_price=candles.latest_low_price,
             open_price=candles.latest_open_price,
-            take_profit_order=self.orders.profit_order,
-            trailing_stop_order=self.orders.trailing_order,
-            stop_order=self.orders.stop_order,
-            exit_order=self.orders.exit_order,
+            take_profit_order=self.order_group.profit_order,
+            trailing_stop_order=self.order_group.trailing_order,
+            stop_order=self.order_group.stop_order,
+            exit_order=self.order_group.exit_order,
         )
 
         if exit_order is not None:
-            if exit_order.stop_price is not None:
+            if exit_order.is_taker:
+                price = candles.latest_open_price
+            elif exit_order.stop_price is not None:
                 price = exit_order.stop_price
             elif exit_order.price is not None:
                 price = exit_order.price
@@ -109,27 +126,32 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
 
             # Calculate fee
 
-            self.position.set_exit(
-                time=candles.latest_open_time,
+            self.position.close(
+                time=candles.latest_time,
                 price=price,
                 fee=0
             )
 
+            self.balances.append(BacktestBalance(
+                time=candles.latest_time,
+                asset=self.balances[-1].asset,
+                free=self.balances[-1].free + self.position.profit)
+            )
             self.positions.append(self.position)
             self.position = None
-            self.orders = None
+            self.order_group = None
 
     def cancel_orders(self, symbol: str):
-        if self.orders is None:
+        if self.order_group is None:
             return []
 
-        orders = copy.deepcopy(self.orders)
-        self.orders = None
+        orders = copy.deepcopy(self.order_group)
+        self.order_group = None
         return orders
 
-    def create_position(
+    def enter_position(
             self,
-            symbol: str,
+            candles: Candles,
             money: float,
             side: int | OrderSide,
             leverage: int,
@@ -139,10 +161,12 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
             trailing_stop_rate: float = None,
             trailing_stop_activation_price: float = None,
     ):
-        if money > self.balance.free:
+        symbol = candles.symbol
+
+        if money > self.balances[-1].free:
             raise BalanceError(
-                f"You tried to enter a position with {money} {self.balance.asset}, "
-                f"while your balance is only {self.balance}."
+                f"You tried to enter a position with {money} {self.balances[-1].asset}, "
+                f"while your balance is only {self.balances[-1]}."
             )
 
         if self.in_position:
@@ -151,63 +175,72 @@ class BacktestFuturesTrader(FuturesTrader, Callable):
                 f"A {symbol} position is already opened."
             )
         self._leverage = leverage
-        self.orders = Orders(
-            *create_orders(
-                symbol=symbol,
-                money=money,
-                side=side,
-                price=price,
-                profit_price=profit_price,
-                stop_price=stop_price,
-                trailing_stop_rate=trailing_stop_rate,
-                trailing_stop_activation_price=trailing_stop_activation_price,
-            )
+
+        entry_orders = create_orders(
+            symbol=symbol,
+            money=money,
+            side=side,
+            current_price=candles.latest_close_price,
+            order_price=price,
+            order_profit_price=profit_price,
+            order_stop_price=stop_price,
+            order_trailing_stop_rate=trailing_stop_rate,
+            order_trailing_stop_activation_price=trailing_stop_activation_price,
         )
+        self.orders.extend(remove_none(entry_orders))
+        self.order_group = OrderGroup(*entry_orders)
 
-        return self.orders
+        return self.order_group
 
-    def create_close_order(self, price: float = None):
+    def create_close_order(self, candles: Candles, close_price: float = None, time_in_force: str | TimeInForce = "GTC"):
         if not self.in_position:
             raise PositionError("Unable to create position closing order because there is no open position!")
 
-        self.orders.exit_order = (
+        close_order = (
             MarketOrder(
                 symbol=self.position.symbol,
                 side=opposite_side(self.position.side),
                 money=self.position.money,
+                quantity=self.position.quantity,
+                price=candles.latest_close_price,
             )
-            if price is None
+            if close_price is None
             else LimitOrder(
                 symbol=self.position.symbol,
                 side=opposite_side(self.position.side),
                 money=self.position.money,
-                price=price,
+                quantity=self.position.quantity,
+                price=close_price,
+                time_in_force=time_in_force,
             )
         )
-        return self.orders.exit_order
+        self.orders.append(close_order)
 
-    def close_position_market(self, symbol: str):
+        self.order_group.exit_order = close_order
+        return close_order
+
+    def close_position_market(self, candles: Candles):
         if self.not_in_position:
             raise PositionError("No position to close.")
 
-        return self.create_close_order()
+        return self.create_close_order(candles)
 
-    def close_position_limit(self, symbol: str, price: float, time_in_force: str | TimeInForce = "GTC"):
+    def close_position_limit(self, candles: Candles, price: float, time_in_force: str | TimeInForce = "GTC"):
         if self.not_in_position:
             raise PositionError("No position to close.")
 
-        return self.create_close_order(price)
+        return self.create_close_order(candles=candles, close_price=price, time_in_force=time_in_force)
 
     def get_balance(self, asset: str):
-        if self.balance.asset == asset:
-            return self.balance
+        if self.balances[-1].asset == asset:
+            return self.balances[-1]
         raise BalanceError(f"{asset} balance not found!")
 
     def get_open_orders(self, symbol: str):
-        if self.orders is None:
+        if self.order_group is None:
             return []
 
-        return self.orders
+        return self.order_group
 
     def get_position(self, symbol: str):
         return self.position

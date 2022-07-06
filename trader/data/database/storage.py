@@ -4,8 +4,8 @@ import os.path
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from trader.data.enum import Market
-from trader.data.log import TRADER_DATA_LOGGER
+from trader.data.enumerate import Market
+from trader.data.log import get_data_logger
 
 
 class CandleStorage(ABC):
@@ -21,7 +21,7 @@ class CandleStorage(ABC):
 
         Formula: {symbol}_{interval}_{market}.{extension}
         """
-        return f"{self.symbol}_{self.interval}_{str(self.market)}.{self.file_extension()}".lower()
+        return f'{self.symbol}_{self.interval}_{str(self.market)}.{self.file_extension()}'.lower()
 
     @property
     def path(self):
@@ -32,13 +32,12 @@ class CandleStorage(ABC):
         parent_dir = Path(dir_path)
         if not parent_dir.exists():
             parent_dir.mkdir(parents=True, exist_ok=True)
-            TRADER_DATA_LOGGER.info(f"Created directory under {dir_path}.")
+            get_data_logger().info(f'Created directory: {dir_path!r}.')
 
         self.dir_path = dir_path
         self.symbol = symbol
         self.interval = interval
         self.market = market
-        TRADER_DATA_LOGGER.info(f"Using {self.path!r} database to get and store candle data.")
 
     @abstractmethod
     def append(

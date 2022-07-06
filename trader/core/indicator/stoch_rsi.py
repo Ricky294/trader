@@ -1,7 +1,7 @@
 import talib
 
 from trader.data.model import Candles
-from trader.data.enum import OHLCV
+from trader.data.enumerate import OHLCV
 
 from trader.core.enumerate import MA
 from trader.core.indicator import Indicator

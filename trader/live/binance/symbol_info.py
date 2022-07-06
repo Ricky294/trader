@@ -31,53 +31,56 @@ class PercentPriceFilter:
         self.multiplier_decimal = float(multiplier_decimal)
 
 
-class BinanceSymbolInfo(SymbolInfo):
+class BinanceFuturesSymbolInfo(SymbolInfo):
 
     def __init__(self, **kwargs):
         super().__init__(
-            symbol=kwargs["symbol"],
-            quantity_precision=kwargs["quantityPrecision"],
-            price_precision=kwargs["pricePrecision"]
+            symbol=kwargs['symbol'],
+            quantity_precision=kwargs['quantityPrecision'],
+            price_precision=kwargs['pricePrecision']
         )
-        self.base_asset: str = kwargs["baseAsset"]
-        self.quote_asset: str = kwargs["quoteAsset"]
-        self.margin_asset: str = kwargs["marginAsset"]
-        self.base_asset_precision: int = kwargs["baseAssetPrecision"]
-        self.quote_precision: int = kwargs["quotePrecision"]
-        self.underlying_type: str = kwargs["underlyingType"]
+        self.base_asset: str = kwargs['baseAsset']
+        self.quote_asset: str = kwargs['quoteAsset']
+        self.margin_asset: str = kwargs['marginAsset']
+        self.base_asset_precision: int = kwargs['baseAssetPrecision']
+        self.quote_precision: int = kwargs['quotePrecision']
+        self.underlying_type: str = kwargs['underlyingType']
 
-        filters: list[dict] = kwargs["filters"]
+        filters: list[dict] = kwargs['filters']
         for flt in filters:
-            if "PRICE_FILTER" in flt:
+            if 'PRICE_FILTER' in flt:
                 self.price_filter = PriceFilter(
-                    max_price=flt["maxPrice"],
-                    min_price=flt["minPrice"],
-                    tick_size=flt["tickSize"],
+                    max_price=flt['maxPrice'],
+                    min_price=flt['minPrice'],
+                    tick_size=flt['tickSize'],
                 )
-            elif "LOT_SIZE" in flt:
+            elif 'LOT_SIZE' in flt:
                 self.limit_lot_size_filter = LimitLotSizeFilter(
-                    max_quantity=flt["maxQty"],
-                    min_quantity=flt["minQty"],
-                    step_size=flt["stepSize"],
+                    max_quantity=flt['maxQty'],
+                    min_quantity=flt['minQty'],
+                    step_size=flt['stepSize'],
                 )
-            elif "MARKET_LOT_SIZE" in flt:
+            elif 'MARKET_LOT_SIZE' in flt:
                 self.limit_lot_size_filter = LimitLotSizeFilter(
-                    max_quantity=flt["maxQty"],
-                    min_quantity=flt["minQty"],
-                    step_size=flt["stepSize"],
+                    max_quantity=flt['maxQty'],
+                    min_quantity=flt['minQty'],
+                    step_size=flt['stepSize'],
                 )
-            elif "MAX_NUM_ORDERS" in flt:
-                self.max_orders = float(flt["limit"])
-            elif "MAX_NUM_ALGO_ORDERS" in flt:
-                self.max_algo_orders = float(flt["limit"])
-            elif "MIN_NOTIONAL" in flt:
-                self.minimum_notional = int(flt["notional"])
-            elif "PERCENT_PRICE" in flt:
+            elif 'MAX_NUM_ORDERS' in flt:
+                self.max_orders = float(flt['limit'])
+            elif 'MAX_NUM_ALGO_ORDERS' in flt:
+                self.max_algo_orders = float(flt['limit'])
+            elif 'MIN_NOTIONAL' in flt:
+                self.minimum_notional = int(flt['notional'])
+            elif 'PERCENT_PRICE' in flt:
                 self.price_percent_filter = PercentPriceFilter(
-                    multiplier_up=float(flt["multiplierUp"]),
-                    multiplier_down=float(flt["multiplierDown"]),
-                    multiplier_decimal=int(flt["multiplierDecimal"]),
+                    multiplier_up=float(flt['multiplierUp']),
+                    multiplier_down=float(flt['multiplierDown']),
+                    multiplier_decimal=int(flt['multiplierDecimal']),
                 )
 
-        self.order_types: list[str] = kwargs["orderTypes"]
-        self.time_in_force: list[str] = kwargs["timeInForce"]
+        self.order_types: list[str] = kwargs['orderTypes']
+        self.time_in_force: list[str] = kwargs['timeInForce']
+
+    def __str__(self):
+        return str(self.__dict__)

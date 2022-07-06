@@ -50,4 +50,4 @@ if __name__ == "__main__":
     )
 
     strategy.run()
-    strategy.plot_results(candlestick_type=Candlestick.JAPANESE)
+    strategy.plot(candlestick_type=Candlestick.JAPANESE)

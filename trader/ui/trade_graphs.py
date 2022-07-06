@@ -4,12 +4,23 @@ from typing import Iterable
 
 import numpy as np
 import nputils as npu
+import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from trader.core.enumerate import SideFormat
+from trader.core.model.balances import Balances
+from trader.core.util.trade import format_side
 from trader.data.model import Candles
 
-from trader.config import PROFIT_PRECISION, MONEY_PRECISION, FEE_PRECISION, PRICE_PRECISION, QUANTITY_PRECISION
+from trader.config import (
+    BALANCE_PRECISION,
+    FEE_PRECISION,
+    MONEY_PRECISION,
+    PRICE_PRECISION,
+    PROFIT_PRECISION,
+    QUANTITY_PRECISION
+)
 import trader.core.indicator as ind
 import trader.core.util.format as fmt
 from trader.core.model import Positions
@@ -26,12 +37,12 @@ class TradeGraphs:
 
     @staticmethod
     def __create_hover_template(names: Iterable[str], precisions: Iterable[int | None]):
-        yield "%{x}"
+        yield '%{x}'
         for i, (name, precision) in enumerate(zip(names, precisions)):
             if precision is None:
-                yield f"{name}: %{{customdata[{i}]}}"
+                yield f'{name}: %{{customdata[{i}]}}'
             else:
-                yield f"{name}: %{{customdata[{i}]:.{precision}f}}"
+                yield f'{name}: %{{customdata[{i}]:.{precision}f}}'
 
     @staticmethod
     def _create_full_series(time_series, positions: Positions, start_cash: float):
@@ -51,7 +62,7 @@ class TradeGraphs:
             self,
             candles: Candles,
             positions: Positions,
-            start_cash: float,
+            balances: Balances,
             web_gl=True,
     ):
         self.web_gl = web_gl
@@ -61,7 +72,8 @@ class TradeGraphs:
             self.__scatter = go.Scatter
 
         self.candles = candles
-        self.start_cash = start_cash
+        self.balances = balances
+        self.start_cash = balances.balance[0]
 
         self.graph_objects: list[dict] = []
         self.annotations: list[dict] = []
@@ -80,17 +92,22 @@ class TradeGraphs:
 
         # --- Calculate series --- #
         self.positions = positions
-        self.fee, self.capital = self._create_full_series(candles.open_times, positions, start_cash)
+        self.fee, self.capital = self._create_full_series(candles.times, positions, self.start_cash)
 
         # https://stackoverflow.com/questions/33678543/finding-indices-of-matches-of-one-array-in-another-array
-        self.entry_indexes = np.nonzero(np.isin(self.candles.open_times, positions.entry_time))[0]
-        self.exit_indexes = np.nonzero(np.isin(self.candles.open_times, positions.exit_time))[0]
+        self.entry_indexes = np.nonzero(np.isin(self.candles.times, positions.entry_time))[0]
+        self.long_entry_indexes = np.nonzero(np.isin(self.candles.times, positions.long_entry_time))[0]
+        self.short_entry_indexes = np.nonzero(np.isin(self.candles.times, positions.short_entry_time))[0]
+
+        self.exit_indexes = np.nonzero(np.isin(self.candles.times, positions.exit_time))[0]
+        self.long_exit_indexes = np.nonzero(np.isin(self.candles.times, positions.long_exit_time))[0]
+        self.short_exit_indexes = np.nonzero(np.isin(self.candles.times, positions.short_exit_time))[0]
 
     def add_capital_graph(
             self,
             fee=True,
-            fee_color="#444",
-            capital_color="#187bcd",
+            fee_color='#444',
+            capital_color='#187bcd',
             annotation=True,
     ):
         self._graph_counter += 1
@@ -99,8 +116,8 @@ class TradeGraphs:
                 trace=self.__scatter(
                     x=self.candles.pd_open_times,
                     y=self.capital,
-                    name="Capital",
-                    marker={"color": capital_color},
+                    name='Capital',
+                    marker={'color': capital_color},
                 ),
                 row=self._graph_counter, col=1,
                 secondary_y=False,
@@ -113,8 +130,8 @@ class TradeGraphs:
                         x=self.candles.pd_open_times,
                         y=self.fee,
                         opacity=0.25,
-                        name="Fee",
-                        marker={"color": fee_color},
+                        name='Fee',
+                        marker={'color': fee_color},
                     ),
                     row=self._graph_counter, col=1,
                     secondary_y=True,
@@ -126,13 +143,13 @@ class TradeGraphs:
             total_profit = (final_balance - self.start_cash) / self.start_cash
             self.annotations.append(
                 dict(
-                    text="<br>".join([
-                        f"Final balance: {fmt.num(final_balance, MONEY_PRECISION)} "
-                        f"({fmt.num(total_profit, PROFIT_PRECISION, perc=True, plus=True)})",
-                        f"Total paid fee: {fmt.num(self.fee[-1], FEE_PRECISION)}",
+                    text='<br>'.join([
+                        f'Final balance: {fmt.num(final_balance, BALANCE_PRECISION)} '
+                        f'({fmt.num(total_profit, PROFIT_PRECISION, perc=True, plus=True)})',
+                        f'Total paid fee: {fmt.num(self.fee[-1], FEE_PRECISION)}',
                     ]),
-                    align="left",
-                    xref="x domain", yref="y domain",
+                    align='left',
+                    xref='x domain', yref='y domain',
                     font=dict(
                         size=8,
                     ),
@@ -146,8 +163,8 @@ class TradeGraphs:
 
     def add_profit_graph(
             self,
-            profit_marker_color="#5CAA42",
-            loss_marker_color="#B22222",
+            profit_marker_color='#5CAA42',
+            loss_marker_color='#B22222',
             annotation=True,
     ):
         def apply_logarithm(data):
@@ -164,10 +181,10 @@ class TradeGraphs:
         self.graph_objects.append(
             dict(
                 trace=go.Scatter(
-                    x=self.positions.pd_positive_profit_time,
+                    x=pd.to_datetime(self.positions.positive_profit_time, unit='s'),
                     y=self.positions.positive_profit,
-                    name="Profit",
-                    mode="markers",
+                    name='Profit',
+                    mode='markers',
                     marker=dict(
                         size=positive_profit_marker_size,
                         color=profit_marker_color,
@@ -180,10 +197,10 @@ class TradeGraphs:
         self.graph_objects.append(
             dict(
                 trace=go.Scatter(
-                    x=self.positions.pd_negative_profit_time,
+                    x=pd.to_datetime(self.positions.negative_profit_time, unit='s'),
                     y=self.positions.negative_profit,
-                    name="Loss",
-                    mode="markers",
+                    name='Loss',
+                    mode='markers',
                     marker=dict(
                         size=negative_profit_marker_size,
                         color=loss_marker_color,
@@ -195,21 +212,17 @@ class TradeGraphs:
         )
 
         if annotation:
-            wins = len(self.positions.positive_profit)
-            losses = len(self.positions.negative_profit)
-            win_rate = wins / (wins + losses)
-            avg_win_loss = (np.sum(self.positions.positive_profit) + np.sum(self.positions.negative_profit)) / len(self.positions.profit)
             self.annotations.append(
                 dict(
-                    text="<br>".join([
-                        f"Wins: {wins}, Losses: {losses}, "
-                        f"Win rate: {fmt.num(win_rate, 3, perc=True)}",
-                        f"Largest win: {fmt.num(np.max(self.positions.profit), PROFIT_PRECISION, plus=True)} "
-                        f"Largest loss: {fmt.num(np.min(self.positions.profit), PROFIT_PRECISION)}",
-                        f"Average win/loss: {fmt.num(avg_win_loss, PROFIT_PRECISION, plus=True)}",
+                    text='<br>'.join([
+                        f'Wins: {self.positions.number_of_wins}, Losses: {self.positions.number_of_losses}, '
+                        f'Win rate: {fmt.num(self.positions.win_rate, 3, perc=True)}',
+                        f'Largest win: {fmt.num(self.positions.largest_profit, PROFIT_PRECISION, plus=True)} '
+                        f'Largest loss: {fmt.num(self.positions.largest_loss, PROFIT_PRECISION)}',
+                        f'Average win/loss: {fmt.num(self.positions.average_profit_and_loss, PROFIT_PRECISION, plus=True)}',
                     ]),
-                    align="left",
-                    xref="x domain", yref="y domain",
+                    align='left',
+                    xref='x domain', yref='y domain',
                     font=dict(size=8),
                     x=0.005, y=0.99, showarrow=False,
                     row=self._graph_counter, col=1,
@@ -219,13 +232,41 @@ class TradeGraphs:
         self.profit_graph = True
         self.profit_graph_number = self._graph_counter
 
+    def __create_marker(
+            self, x, y, 
+            name: str, color: str, symbol: str, 
+            hovertemplate: Iterable[str] = None, customdata: Iterable = None,
+            text_position: str = None, text: Iterable[str] = None,
+    ):
+        return dict(
+            trace=self.__scatter(
+                x=pd.to_datetime(x, unit='s'),
+                y=y,
+                name=name,
+                mode='markers+text',
+                marker=dict(color=color, symbol=symbol),
+                text=text,
+                textposition=text_position,
+                textfont=dict(
+                    size=9,
+                ),
+                customdata=customdata,
+                hovertemplate=None if hovertemplate is None else '<br>'.join(hovertemplate),
+            ),
+            secondary_y=False,
+            row=self._graph_counter, col=1,
+        )
+
     def add_candlestick_graph(
             self,
             candlestick_type=Candlestick.LINE,
             volume_type=Volume.LINE,
-            entry_marker_color="#3d8f6d",
-            exit_marker_color="red",
-            volume_color="#2CA02C",
+            long_entry_marker_color='#3d8f6d',
+            short_entry_marker_color='red',
+            long_exit_marker_color='#3d8f6d',
+            short_exit_marker_color='red',
+            entry_price_marker_color='#2871cc',
+            volume_color='#2CA02C',
             annotation=True,
     ):
 
@@ -238,7 +279,7 @@ class TradeGraphs:
                         high=candles.high_prices,
                         low=candles.low_prices,
                         close=candles.close_prices,
-                        name=f"Candles ({str(candlestick_type)})",
+                        name=f'Candles ({str(candlestick_type)})',
                     ),
                     secondary_y=False,
                     row=self._graph_counter, col=1,
@@ -257,8 +298,8 @@ class TradeGraphs:
                     trace=self.__scatter(
                         x=self.candles.pd_open_times,
                         y=self.candles.close_prices,
-                        marker=dict(color="#444"),
-                        name="Close prices",
+                        marker=dict(color='#444'),
+                        name='Close prices',
                     ),
                     row=self._graph_counter, col=1,
                     secondary_y=False,
@@ -266,55 +307,112 @@ class TradeGraphs:
             )
 
         is_candlestick = candlestick_type in (Candlestick.HEIKIN_ASHI, Candlestick.JAPANESE)
-        entry_y = self.candles.low_prices if is_candlestick else self.candles.close_prices
-        entry_y = entry_y[self.entry_indexes]
+
+        entry_long_y = self.candles.low_prices if is_candlestick else self.candles.close_prices
+        entry_long_y = entry_long_y[self.long_entry_indexes]
+
         self.graph_objects.append(
-            dict(
-                trace=self.__scatter(
-                    x=self.positions.pd_entry_time,
-                    y=entry_y - np.sqrt(entry_y) * 2.,
-                    name="Entry",
-                    mode="markers",
-                    marker={"color": entry_marker_color, "symbol": "triangle-up"},
-                    customdata=self.__create_custom_data(
-                        self.positions.entry_price, self.positions.side, self.positions.money, self.positions.quantity, self.positions.entry_fee
-                    ),
-                    hovertemplate="<br>".join(
-                        self.__create_hover_template(
-                            ["Price", "Side", "Money", "Quantity", "Fee"],
-                            [PRICE_PRECISION, None, MONEY_PRECISION, QUANTITY_PRECISION, FEE_PRECISION],
-                        )
-                    ),
+            self.__create_marker(
+                name='Long entry',
+                x=self.positions.long_entry_time,
+                y=entry_long_y - np.sqrt(entry_long_y) * 2.,
+                color=long_entry_marker_color,
+                symbol='triangle-up',
+                text=[fmt.capitalize(format_side(long, SideFormat.LONG_SHORT)) for long in self.positions.long_side],
+                text_position='bottom center',
+                customdata=self.__create_custom_data(
+                    self.positions.long_entry_price, self.positions.long_money,
+                    self.positions.long_quantity, self.positions.long_entry_fee
                 ),
-                secondary_y=False,
-                row=self._graph_counter, col=1,
+                hovertemplate=self.__create_hover_template(
+                    ['Price', 'Money', 'Quantity', 'Fee'],
+                    [PRICE_PRECISION, MONEY_PRECISION, QUANTITY_PRECISION, FEE_PRECISION],
+                )
             )
         )
 
-        exit_y = self.candles.high_prices if is_candlestick else self.candles.close_prices
-        exit_y = exit_y[self.exit_indexes]
+        entry_short_y = self.candles.low_prices if is_candlestick else self.candles.close_prices
+        entry_short_y = entry_short_y[self.short_entry_indexes]
         self.graph_objects.append(
-            dict(
-                trace=self.__scatter(
-                    x=self.positions.pd_exit_time,
-                    y=exit_y + np.sqrt(exit_y) * 2.,
-                    name="Exit",
-                    mode="markers",
-                    marker=dict(
-                        color=exit_marker_color,
-                        symbol="triangle-down",
-                    ),
-                    customdata=self.__create_custom_data(self.positions.exit_price, self.positions.profit, self.positions.exit_fee),
-                    hovertemplate="<br>".join(
-                        self.__create_hover_template(
-                            ["Price", "Profit", "Fee"],
-                            [PROFIT_PRECISION, PROFIT_PRECISION, FEE_PRECISION]
-                        )
-                    )
-
+            self.__create_marker(
+                x=self.positions.short_entry_time,
+                y=entry_short_y - np.sqrt(entry_short_y) * 2.,
+                name='Short entry',
+                color=short_entry_marker_color,
+                symbol='triangle-up',
+                text=[fmt.capitalize(format_side(short, SideFormat.LONG_SHORT)) for short in self.positions.short_side],
+                text_position='bottom center',
+                customdata=self.__create_custom_data(
+                    self.positions.short_entry_price, self.positions.short_money,
+                    self.positions.short_quantity, self.positions.short_entry_fee
                 ),
-                secondary_y=False,
-                row=self._graph_counter, col=1,
+                hovertemplate=self.__create_hover_template(
+                    ['Price', 'Money', 'Quantity', 'Fee'],
+                    [PRICE_PRECISION, MONEY_PRECISION, QUANTITY_PRECISION, FEE_PRECISION],
+                ),
+
+            ),
+        )
+
+        long_exit_y = self.candles.high_prices if is_candlestick else self.candles.close_prices
+        long_exit_y = long_exit_y[self.long_exit_indexes]
+        self.graph_objects.append(
+            self.__create_marker(
+                x=self.positions.long_exit_time,
+                y=long_exit_y + np.sqrt(long_exit_y) * 2.,
+                name='Long exit',
+                color=long_exit_marker_color,
+                symbol='triangle-down',
+                text=[f'X {fmt.capitalize(format_side(side, SideFormat.LONG_SHORT))}' for side in self.positions.long_side],
+                text_position='top center',
+                customdata=self.__create_custom_data(
+                    self.positions.long_exit_price, self.positions.long_profit, self.positions.long_exit_fee
+                ),
+                hovertemplate=self.__create_hover_template(
+                    ['Price', 'Profit', 'Fee'],
+                    [PROFIT_PRECISION, PROFIT_PRECISION, FEE_PRECISION]
+                )
+            )
+        )
+
+        short_exit_y = self.candles.high_prices if is_candlestick else self.candles.close_prices
+        short_exit_y = short_exit_y[self.short_exit_indexes]
+        self.graph_objects.append(
+            self.__create_marker(
+                x=self.positions.short_exit_time,
+                y=short_exit_y + np.sqrt(short_exit_y) * 2.,
+                name='Short exit',
+                color=short_exit_marker_color,
+                symbol='triangle-down',
+                text=[f'X {fmt.capitalize(format_side(side, SideFormat.LONG_SHORT))}' for side in self.positions.short_side],
+                text_position='top center',
+                customdata=self.__create_custom_data(
+                    self.positions.short_exit_price, self.positions.short_profit, self.positions.short_exit_fee
+                ),
+                hovertemplate=self.__create_hover_template(
+                    ['Price', 'Profit', 'Fee'],
+                    [PROFIT_PRECISION, PROFIT_PRECISION, FEE_PRECISION]
+                )
+            )
+        )
+
+        self.graph_objects.append(
+            self.__create_marker(
+                x=self.positions.entry_time,
+                y=self.positions.entry_price,
+                name='Entry price',
+                color=entry_price_marker_color,
+                symbol='arrow-right',
+            )
+        )
+
+        self.graph_objects.append(
+            self.__create_marker(
+                x=self.positions.exit_time,
+                y=self.positions.exit_price,
+                name='Exit price',
+                color=entry_price_marker_color,
+                symbol='arrow-left',
             )
         )
 
@@ -324,8 +422,8 @@ class TradeGraphs:
                     trace=self.__scatter(
                         x=self.candles.pd_open_times,
                         y=self.candles.volumes,
-                        name="Volume (Line)",
-                        marker={"color": volume_color},
+                        name='Volume (Line)',
+                        marker={'color': volume_color},
                         opacity=0.2,
                         hoverinfo='skip',
                     ),
@@ -339,8 +437,8 @@ class TradeGraphs:
                     trace=go.Bar(
                         x=self.candles.pd_open_times,
                         y=self.candles.volumes,
-                        name="Volume (Bar)",
-                        marker={"color": volume_color},
+                        name='Volume (Bar)',
+                        marker={'color': volume_color},
                         opacity=0.2,
                         hoverinfo='skip',
                     ),
@@ -352,12 +450,12 @@ class TradeGraphs:
         if annotation:
             self.annotations.append(
                 dict(
-                    text="<br>".join([
-                        f"ATH: {fmt.num(self.candles.ath(), PRICE_PRECISION)}",
-                        f"ATL: {fmt.num(self.candles.atl(), PRICE_PRECISION)}",
+                    text='<br>'.join([
+                        f'ATH: {fmt.num(self.candles.ath(), PRICE_PRECISION)}',
+                        f'ATL: {fmt.num(self.candles.atl(), PRICE_PRECISION)}',
                     ]),
-                    align="left",
-                    xref="x domain", yref="y domain",
+                    align='left',
+                    xref='x domain', yref='y domain',
                     font=dict(size=8),
                     x=0.005, y=0.99, showarrow=False,
                     row=self._graph_counter, col=1,
@@ -431,20 +529,20 @@ class TradeGraphs:
                         trace=self.__scatter(
                             x=self.candles.pd_open_times,
                             y=y_data,
-                            name=fmt.upper(name),
+                            name=fmt.capitalize(name),
                         ),
                         row=figure_number, col=1,
                     )
                 )
-            elif "limit" in name and isinstance(y_data, (float, int)):
+            elif 'limit' in name and isinstance(y_data, (float, int)):
                 self.graph_objects.append(
                     dict(
                         trace=self.__scatter(
                             x=[self.candles.pd_open_times[0], self.candles.pd_open_times[-1]],
                             y=[y_data, y_data],
-                            mode="lines",
+                            mode='lines',
                             hoverinfo='skip',
-                            marker=dict(color="#187bcd"),
+                            marker=dict(color='#187bcd'),
                             name=fmt.capitalize(name, y_data),
                         ),
                         row=figure_number, col=1,
@@ -452,9 +550,9 @@ class TradeGraphs:
                 )
 
     def create_figure(self):
-        number_of_plots = len(set(graph["row"] for graph in self.graph_objects))
+        number_of_plots = len(set(graph['row'] for graph in self.graph_objects))
 
-        specs = [[{"secondary_y": True}] for _ in range(number_of_plots)]
+        specs = [[{'secondary_y': True}] for _ in range(number_of_plots)]
 
         row_heights = []
 

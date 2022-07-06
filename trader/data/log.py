@@ -1,10 +1,12 @@
 import logging
 
+from trader.core.util.common import singleton
+
 
 def create_logger(
         name: str,
-        fmt="%(levelname)s-%(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
+        fmt='%(levelname)s-%(name)s: %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
         level=logging.INFO,
 ):
     """
@@ -38,5 +40,6 @@ def create_logger(
     return logger
 
 
-TRADER_DATA_LOGGER = create_logger("data")
-
+@singleton
+def get_data_logger():
+    return create_logger('trader.data')

@@ -9,15 +9,15 @@ import requests
 from tqdm import tqdm
 
 from trader.data.database import CandleStorage
-from trader.data.log import TRADER_DATA_LOGGER
+from trader.data.log import get_data_logger
 from trader.data.util import interval_to_seconds
-from trader.data.enum import Market
+from trader.data.enumerate import Market
 from trader.data.model import Candles
 from trader.data.schema import OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE, VOLUME
 from trader.data.binance.schema import NAME_TO_INDEX
 
-SPOT_URL = "https://api.binance.com/api/v3/klines"
-FUTURES_URL = "https://fapi.binance.com/fapi/v1/klines"
+SPOT_CANDLE_URL = "https://api.binance.com/api/v3/klines"
+FUTURES_CANDLE_URL = "https://fapi.binance.com/fapi/v1/klines"
 
 
 def filter_columns(array: np.ndarray, columns: Iterable[str]):
@@ -40,9 +40,9 @@ def get_first_candle_timestamp(
     """Returns the first available candle data timestamp on binance `symbol`, `interval`, `market` in seconds."""
 
     if str(market).upper() == "SPOT":
-        url = SPOT_URL
+        url = SPOT_CANDLE_URL
     elif str(market).upper() == "FUTURES":
-        url = FUTURES_URL
+        url = FUTURES_CANDLE_URL
     else:
         raise ValueError(f"Invalid market type: {market}")
 
@@ -59,9 +59,9 @@ def _build_url(
         limit=1000,
 ):
     if str(market).upper() == "SPOT":
-        url = SPOT_URL
+        url = SPOT_CANDLE_URL
     elif str(market).upper() == "FUTURES":
-        url = FUTURES_URL
+        url = FUTURES_CANDLE_URL
     else:
         raise ValueError(f"Invalid market type: {market}")
 
@@ -123,7 +123,7 @@ def get_candles_as_list(
 
     data = []
 
-    TRADER_DATA_LOGGER.info(f"Downloading {symbol} candles in {interval} intervals from binance {market} market.")
+    get_data_logger().info(f"Downloading {symbol} candles in {interval} intervals from binance {market} market.")
 
     with tqdm(total=total_items) as pbar:
         while True:
@@ -137,12 +137,12 @@ def get_candles_as_list(
 
             url_with_start_ts = f"{url}&startTime={new_data[-1][0] + 1}"
 
-    TRADER_DATA_LOGGER.info(f"Finished downloading ≈{total_items} candle(s).")
+    get_data_logger().info(f"Finished downloading ≈{total_items} candle(s).")
     return data
 
 
 def get_candles_as_array(
-        symbol: str,
+        symbol,
         interval: str,
         market: str | Market,
         start_ts: float | int,
@@ -195,7 +195,8 @@ def get_candles_as_array(
 
 
 def get_candles_as_dataframe(
-        symbol: str,
+        base_currency: str,
+        quote_currency: str,
         interval: str,
         market: str | Market,
         start_ts: float | int,
@@ -219,7 +220,8 @@ def get_candles_as_dataframe(
         - TAKER_BUY_BASE_ASSET_VOLUME
         - TAKER_BUY_QUOTE_ASSET_VOLUME
 
-    :param symbol: Cryptocurrency pair (e.g BTCUSDT).
+    :param base_currency: Left side of the currency pair (e.g. 'BTC').
+    :param quote_currency: Right side of the currency pair (e.g. 'USDT').
     :param interval: Timeframe between candles.
     :param market: SPOT=1 or FUTURES=2 market
     :param start_ts: Start timestamp in seconds.
@@ -228,6 +230,7 @@ def get_candles_as_dataframe(
     :return: pandas DataFrame
     """
 
+    symbol = base_currency + quote_currency
     candles = get_candles_as_array(
         symbol=symbol,
         interval=interval,
@@ -237,11 +240,18 @@ def get_candles_as_dataframe(
         columns=columns,
     )
 
-    return pd.DataFrame(candles, columns=tuple(columns))
+    df = pd.DataFrame(candles, columns=tuple(columns))
+    df.meta = {
+        "base_currency": base_currency,
+        "quote_currency": quote_currency,
+    }
+
+    return df
 
 
 def get_tohlcv_candles(
-        symbol: str,
+        base_currency: str,
+        quote_currency: str,
         interval: str,
         market: str | Market,
         start_ts: float | int,
@@ -256,6 +266,7 @@ def get_tohlcv_candles(
         - CLOSE_TIME
         - VOLUME
     """
+    symbol = base_currency + quote_currency
 
     np_candles = get_candles_as_array(
         symbol=symbol,
@@ -266,11 +277,15 @@ def get_tohlcv_candles(
         columns=(OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE, VOLUME),
     )
 
-    return Candles(np_candles, symbol=symbol, interval=interval, market=market)
+    return Candles(
+        np_candles, symbol=symbol, interval=interval, market=market,
+        meta={"base_currency": base_currency, "quote_currency": quote_currency},
+    )
 
 
 def get_store_candles(
-        symbol: str,
+        base_currency: str,
+        quote_currency: str,
         interval: str,
         market: str | Market,
         storage_type: Type[CandleStorage],
@@ -280,8 +295,18 @@ def get_store_candles(
     """
     Downloads data from binance if not present in local storage under `storage_path`
     and appends local storage with the new data.
+
+    :param base_currency: Left side of the currency pair (e.g. 'BTC').
+    :param quote_currency: Right side of the currency pair (e.g. 'USDT').
+    :param interval: Candle sampling timeframe (e.g. '1h').
+    :param market: Gets the historical candles from market.
+    :param storage_type:
+    :param storage_dir: Path to store candle data.
+    :param columns: Columns to include in the result list
+    :return: Candles object
     """
 
+    symbol = base_currency + quote_currency
     storage = storage_type(dir_path=storage_dir, symbol=symbol, interval=interval, market=market)
 
     try:
@@ -302,4 +327,7 @@ def get_store_candles(
     if downloaded_data.size != 0:
         storage.append(downloaded_data)
 
-    return Candles(storage.get(), symbol=symbol, interval=interval, market=market)
+    return Candles(
+        storage.get(), symbol=symbol, interval=interval, market=market,
+        meta={"base_currency": base_currency, "quote_currency": quote_currency},
+    )

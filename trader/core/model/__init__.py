@@ -12,5 +12,5 @@ from .order import (
     StopMarketOrder,
     TrailingStopMarketOrder,
 )
-
 from .orders import Orders
+from .order_group import OrderGroup

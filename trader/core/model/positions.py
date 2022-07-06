@@ -1,20 +1,19 @@
 from typing import Iterable
 
 import numpy as np
-import pandas as pd
 
-from trader.core.const.trade_actions import BUY
+from trader.core.const.trade_actions import LONG, SHORT
 from trader.core.model import Position
+from trader.data.model import Columnar
 
 
-class Positions:
+class Positions(Columnar):
 
     def __init__(self, positions: Iterable[Position]):
-        self.positions = positions
-
+        super().__init__()
         self.symbol = np.array([pos.symbol for pos in positions])
 
-        self.side = np.array(["Long" if pos.side == BUY else "Short" for pos in positions])
+        self.side = np.array([pos.side for pos in positions])
         self.money = np.array([pos.money for pos in positions])
         self.quantity = np.array([pos.quantity for pos in positions])
         self.leverage = np.array([pos.leverage for pos in positions])
@@ -29,23 +28,84 @@ class Positions:
         self.profit = np.array([pos.profit for pos in positions])
 
     @property
-    def to_dataframe(self):
-        return pd.DataFrame(
-            np.array([position.to_list() for position in self.positions]),
-            columns=self.columns,
-        )
+    def long_entry_time(self):
+        return self.entry_time[self.side == LONG]
 
     @property
-    def pd_entry_time(self):
-        return pd.to_datetime(self.entry_time, unit="s")
+    def long_entry_price(self):
+        return self.entry_price[self.side == LONG]
 
     @property
-    def pd_exit_time(self):
-        return pd.to_datetime(self.exit_time, unit="s", format="%Y-%m-%d %H:%M:%S")
+    def long_side(self):
+        return self.side[self.side == LONG]
 
     @property
-    def dt_entry_time(self):
-        return pd.to_datetime(self.entry_time, unit="s")
+    def long_money(self):
+        return self.money[self.side == LONG]
+
+    @property
+    def long_quantity(self):
+        return self.quantity[self.side == LONG]
+
+    @property
+    def long_entry_fee(self):
+        return self.entry_fee[self.side == LONG]
+
+    @property
+    def short_entry_time(self):
+        return self.entry_time[self.side == SHORT]
+
+    @property
+    def short_entry_price(self):
+        return self.entry_price[self.side == SHORT]
+
+    @property
+    def short_side(self):
+        return self.side[self.side == SHORT]
+
+    @property
+    def short_money(self):
+        return self.money[self.side == SHORT]
+
+    @property
+    def short_quantity(self):
+        return self.quantity[self.side == SHORT]
+
+    @property
+    def short_entry_fee(self):
+        return self.entry_fee[self.side == SHORT]
+
+    @property
+    def long_exit_time(self):
+        return self.exit_time[self.side == LONG]
+
+    @property
+    def short_exit_time(self):
+        return self.exit_time[self.side == SHORT]
+
+    @property
+    def long_exit_price(self):
+        return self.exit_price[self.side == LONG]
+
+    @property
+    def short_exit_price(self):
+        return self.exit_price[self.side == SHORT]
+
+    @property
+    def long_exit_fee(self):
+        return self.exit_fee[self.side == LONG]
+
+    @property
+    def short_exit_fee(self):
+        return self.exit_fee[self.side == SHORT]
+
+    @property
+    def long_profit(self):
+        return self.profit[self.side == LONG]
+
+    @property
+    def short_profit(self):
+        return self.profit[self.side == SHORT]
 
     @property
     def positive_profit(self):
@@ -60,46 +120,145 @@ class Positions:
         return self.exit_time[self.profit >= 0]
 
     @property
-    def pd_positive_profit_time(self):
-        return pd.to_datetime(self.positive_profit_time, unit="s")
-
-    @property
     def negative_profit_time(self):
         return self.exit_time[self.profit < 0]
 
     @property
-    def pd_negative_profit_time(self):
-        return pd.to_datetime(self.negative_profit_time, unit="s")
+    def win_rate(self):
+        """
+        Number of winning trades / number of trades
+
+        :return: float between 0 and 1
+        """
+        try:
+            return self.number_of_wins / self.number_of_trades
+        except ZeroDivisionError:
+            return .0
 
     @property
-    def columns(self):
-        return [
-            "Symbol", "Entry time", "Entry price",
-            "Money", "Quantity", "Side", "Entry fee", "Leverage",
-            "Exit time", "Exit price", "Exit fee", "Profit",
-        ]
+    def win_percentage(self):
+        """
+        Number of winning trades / number of trades * 100
 
-    def to_list(self, time_format: str = "pd"):
-        if time_format == "ts":
-            entry_time = self.entry_time
-            exit_time = self.exit_time
-        elif time_format == "pd":
-            entry_time = self.pd_entry_time
-            exit_time = self.pd_exit_time
-        else:
-            raise ValueError("Format param must be 'ts' or 'pd'.")
+        :return: float between 0 and 100
+        """
+        return self.win_rate * 100
 
-        return [
-            self.symbol, entry_time, self.entry_price,
-            self.money, self.quantity, self.side, self.entry_fee, self.leverage,
-            exit_time, self.exit_price, self.exit_fee, self.profit,
-        ]
+    @property
+    def loss_rate(self):
+        """
+        Number of loosing trades / number of trades
 
-    def to_dict(self):
-        return {col: data for col, data in zip(self.columns, self.to_list())}
+        :return: float between 0 and 1
+        """
+        try:
+            return self.number_of_losses / self.number_of_trades
+        except ZeroDivisionError:
+            return .0
 
-    def to_records(self, time_format: str = "ts"):
-        return [pos.to_dict(time_format) for pos in self.positions]
+    @property
+    def loss_percentage(self):
+        """
+        Number of loosing trades / number of trades * 100
 
-    def __iter__(self):
-        return self.positions
+        :return: float between 0 and 100
+        """
+        return self.loss_rate * 100
+
+    @property
+    def largest_profit(self) -> float:
+        """
+        Returns the largest profit of all trades.
+        """
+        return np.max(self.positive_profit)
+
+    @property
+    def largest_profit_date(self):
+        """Returns the date of the largest winning trade."""
+        return self.exit_time[np.where(self.profit == self.largest_profit)[0][0]]
+
+    @property
+    def largest_loss(self) -> float:
+        """Returns the largest loss of all trades."""
+        return np.min(self.negative_profit)
+
+    @property
+    def largest_loss_date(self):
+        """Return the date of the largest loosing trade."""
+        return self.exit_time[np.where(self.profit == self.largest_loss)[0][0]]
+
+    @property
+    def number_of_trades(self):
+        return len(self.profit)
+
+    @property
+    def number_of_losses(self):
+        """Returns the number of loosing trades, (profit < 0)."""
+        return len(self.negative_profit)
+
+    @property
+    def number_of_wins(self):
+        """Returns the number of winning trades, (profit > 0)."""
+        return len(self.positive_profit)
+
+    @property
+    def sum_profit(self):
+        """Returns the sum of all the profitable trades."""
+        return sum(self.positive_profit)
+
+    @property
+    def sum_loss(self):
+        """Returns the sum of all the loosing trades."""
+        return sum(self.negative_profit)
+
+    @property
+    def sum_profit_and_loss(self):
+        """Returns the sum of all the trades."""
+        return sum(self.profit)
+
+    @property
+    def profit_factor(self):
+        """
+        Strategy is considered good if the return value is > 1.
+            - If it is greater than 1: The expected return of a trade is positive.
+            - If it is less than 1: The expected return of a trade is negative.
+
+        Calculation formula:
+            - (Win rate * Average of winning trades) / (Loss rate * Average of loosing trades)
+        :return:
+        """
+        return (self.win_rate * self.average_profit) / (self.loss_rate * abs(self.average_loss))
+
+    @property
+    def expectancy(self):
+        """
+        The expected return of each trade.
+
+        Calculation formula:
+            - (Win rate * Average of winning trades) – (Loss rate * Average of loosing trades)
+
+        Note: Same as self.average_profit_and_loss
+        """
+        return (self.win_rate * self.average_profit) - (self.loss_rate * abs(self.average_loss))
+
+    @property
+    def average_profit(self):
+        """Sum of the profitable trades / number of winning trades."""
+        return self.sum_profit / self.number_of_wins
+
+    @property
+    def average_loss(self):
+        """Sum of the loosing trades / number of loosing trades."""
+        return self.sum_loss / self.number_of_losses
+
+    @property
+    def average_profit_and_loss(self):
+        """
+        Sum of all trades / number of trades.
+
+        Calculation formula:
+            - Sum P&L / Number of trades
+
+        Note: Same as self.expectancy
+        """
+        return self.sum_profit_and_loss / self.number_of_trades

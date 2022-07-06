@@ -6,7 +6,7 @@ from typing import Callable
 import numpy as np
 import websocket
 
-from trader.data.log import TRADER_DATA_LOGGER
+from trader.data.log import get_data_logger
 from trader.data.model import Candles
 from trader.data.schema import NAME_TO_SHORT_NAME
 
@@ -48,7 +48,7 @@ def candle_stream(
         candle_data["Q"] = float(candle_data["Q"])
 
         if log_candles:
-            TRADER_DATA_LOGGER.info(candle_data)
+            get_data_logger().info(candle_data)
 
         if candle_data["x"]:
             new_candle = np.array([candle_data[NAME_TO_SHORT_NAME[name]] for name in candles.schema], dtype=float)
@@ -58,17 +58,17 @@ def candle_stream(
         on_candle(candle_data)
 
     def on_error(ws, error):
-        TRADER_DATA_LOGGER.error(
+        get_data_logger().error(
             f"Connection closed with an error: ({error})"
         )
 
     def on_close(ws, close_status_code, close_msg):
-        TRADER_DATA_LOGGER.info(
+        get_data_logger().info(
             f"Connection closed: (status_code: {close_status_code}, message: {close_msg})"
         )
 
     def on_open(ws):
-        TRADER_DATA_LOGGER.info(
+        get_data_logger().info(
             f"Starting {candles.symbol} candle stream "
             f"in {candles.interval} intervals on binance {candles.market} market."
         )

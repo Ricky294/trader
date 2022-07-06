@@ -8,7 +8,7 @@ from trader.core.model import (
     LimitOrder,
     TakeProfitMarketOrder,
     StopMarketOrder,
-    TrailingStopMarketOrder,
+    TrailingStopMarketOrder, StopLimitOrder, TakeProfitLimitOrder,
 )
 
 
@@ -67,13 +67,13 @@ def is_trailing_stop_hit(
 def is_order_filled(
         high_price: float,
         low_price: float,
-        order: MarketOrder | LimitOrder | StopMarketOrder | TakeProfitMarketOrder | BacktestTrailingStopMarketOrder | None
+        order: LimitOrder | StopMarketOrder | TakeProfitMarketOrder | BacktestTrailingStopMarketOrder | None
 ):
     if order is None:
         return False
-    elif order.type == "MARKET":
+    elif order.type == 'MARKET':
         return True
-    elif order.type == "LIMIT":
+    elif order.type == 'LIMIT':
         return is_limit_buy_hit(
             low_price=low_price,
             order=order,
@@ -81,25 +81,25 @@ def is_order_filled(
             high_price=high_price,
             order=order,
         )
-    elif order.type == "TAKE_PROFIT_MARKET":
+    elif order.type == 'TAKE_PROFIT_MARKET':
         return is_take_profit_hit(
             high_price=high_price,
             low_price=low_price,
             order=order,
         )
-    elif order.type == "STOP_MARKET":
+    elif order.type == 'STOP_MARKET':
         return is_stop_loss_hit(
             high_price=high_price,
             low_price=low_price,
             order=order,
         )
-    elif order.type == "TRAILING_STOP_MARKET":
+    elif order.type == 'TRAILING_STOP_MARKET':
         return is_trailing_stop_hit(
             high_price=high_price,
             low_price=low_price,
             order=order,
         )
-    raise ValueError(f"Unsupported order: {order}")
+    raise ValueError(f'Unsupported order: {order}')
 
 
 def get_closer_order(
@@ -134,7 +134,7 @@ def get_filled_first(
 
     exit_hit = is_order_filled(high_price=high_price, low_price=low_price, order=exit_order)
 
-    if exit_hit and exit_order.type == "MARKET":
+    if exit_hit and exit_order.type == 'MARKET':
         return exit_order
 
     take_profit_hit = is_order_filled(high_price=high_price, low_price=low_price, order=take_profit_order)
@@ -142,7 +142,7 @@ def get_filled_first(
     trailing_stop_hit = is_order_filled(high_price=high_price, low_price=low_price, order=trailing_stop_order)
 
     if take_profit_hit and stop_loss_hit:
-        if get_closer_order(high_price, low_price, open_price, take_profit_order, stop_order).type == "STOP_MARKET":
+        if get_closer_order(high_price, low_price, open_price, take_profit_order, stop_order).type == 'STOP_MARKET':
             take_profit_hit = False
         else:
             stop_loss_hit = False

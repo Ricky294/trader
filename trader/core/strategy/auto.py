@@ -6,7 +6,7 @@ from trader.data.model import Candles
 
 from trader.core.model import Position
 from trader.core.enumerate import OrderSide
-from trader.core.exception import TraderException
+from trader.core.exception import TraderError
 from trader.core.interface import FuturesTrader
 
 # Use this exact import in order to avoid circular import
@@ -90,7 +90,7 @@ class AutoStrategy(ManagedPositionStrategy):
         """
 
         if trade_ratio <= 0 or trade_ratio >= 1:
-            raise TraderException(f"trade_ratio must be between 0 and 1")
+            raise TraderError(f"trade_ratio must be between 0 and 1")
 
         super(AutoStrategy, self).__init__(trader=trader, candles=candles)
 

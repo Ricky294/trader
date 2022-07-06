@@ -1,0 +1,24 @@
+// ---------- Pine Script MA Cross Strategy ----------
+// Entry logic:
+//  - LONG: Not in position, fast ema crosses above slow ema
+//  - SHORT: Not in position, fast ema crosses under slow ema
+
+// Add MA Cross indicator to chart (select 20 fast and 30 slow MA)
+
+//@version=5
+strategy("SMA Cross", initial_capital=1000, currency=currency.USDT)
+
+fast_ma = ta.sma(close, 20)
+slow_ma = ta.sma(close, 30)
+long_signal = ta.crossover(fast_ma, slow_ma)
+short_signal = ta.crossunder(fast_ma, slow_ma)
+
+in_position = strategy.position_size != 0.0
+not_in_position = strategy.position_size == 0.0
+
+if year >= 2020 and year < 2022
+    strategy.entry("buy", strategy.long, 0.01, when = long_signal)
+    strategy.entry("sell", strategy.short, 0.01, when = short_signal)
+
+
+plot(strategy.equity, title="Equity", trackprice=true)

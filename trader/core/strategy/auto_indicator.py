@@ -1,11 +1,12 @@
 from typing import Iterable, Callable
 
+from trader.core.model import Position
 from trader.core.strategy import Strategy
 from trader.data.model import Candles
 
 from trader.core.const.trade_actions import SELL, BUY
 from trader.core.enumerate import OrderSide, Mode
-from trader.core.exception import TraderException
+from trader.core.exception import TraderError
 from trader.core.indicator import Indicator
 from trader.core.interface import FuturesTrader
 
@@ -48,7 +49,7 @@ class AutoIndicatorStrategy(Strategy):
             entry_price: Callable[[Candles, OrderSide], float] = lambda _, __: None,
             profit_price: Callable[[Candles, OrderSide], float] = lambda _, __: None,
             stop_price: Callable[[Candles, OrderSide], float] = lambda _, __: None,
-            exit_price: Callable[[Candles, OrderSide], float] = lambda _, __: None,
+            exit_price: Callable[[Candles, Position], float] = lambda _, __: None,
     ):
         """
         Creates an automated trading strategy. Enters and exits positions based on the condition callbacks.
@@ -68,13 +69,14 @@ class AutoIndicatorStrategy(Strategy):
         :param profit_price: Defines take profit price. Called on position entry. (Optional)
         :param stop_price: Defines stop loss price. Called on position entry. (Optional)
         :param exit_price: Defines position exit price. Called on position close. (Optional)
+        :raises TraderError: If trade ratio is not between 0 and 1.
 
         Note: Exit conditions, take profit and stop loss price logic are optional, but you should define either
         the exit conditions or the take profit/stop loss logics in order to exit positions.
         """
 
         if trade_ratio <= 0 or trade_ratio >= 1:
-            raise TraderException(f"trade_ratio must be between 0 and 1")
+            raise TraderError(f"trade_ratio must be between 0 and 1")
 
         super(AutoIndicatorStrategy, self).__init__(trader=trader, candles=candles)
 
@@ -96,46 +98,42 @@ class AutoIndicatorStrategy(Strategy):
         self.profit_price = profit_price
         self.stop_price = stop_price
 
-    def __create_position(self, side: OrderSide):
+    def __enter_position(self, side: OrderSide):
         price = self.entry_price(self.candles, side)
-        tp = self.profit_price(self.candles, side)
-        sl = self.stop_price(self.candles, side)
+        tp_price = self.profit_price(self.candles, side)
+        sl_price = self.stop_price(self.candles, side)
         self.create_position(
-            symbol=self.candles.symbol,
+            candles=self.candles,
             money=self.get_balance(self.asset).free * self.trade_ratio,
             leverage=self.leverage,
             side=side,
             price=price,
-            profit_price=tp,
-            stop_price=sl,
+            profit_price=tp_price,
+            stop_price=sl_price,
         )
 
-    def __close_position(self, side: OrderSide):
-        price = self.exit_price(self.candles, side)
+    def __exit_position(self, position: Position):
+        price = self.exit_price(self.candles, position)
 
         self.close_position(
-            symbol=self.candles.symbol,
+            candles=self.candles,
             price=price,
         )
 
     def __call__(self, candles: Candles):
-        def enter_exit_position():
-            last_index = len(candles) - 1
-            position = self.get_position(self.candles.symbol)
-
-            if position is None:
-                if self.entry_buy_conditions(last_index):
-                    self.__create_position(OrderSide.BUY)
-                elif self.entry_sell_conditions(last_index):
-                    self.__create_position(OrderSide.SELL)
-            else:
-                if position.side == SELL and self.exit_buy_conditions(last_index):
-                    self.__close_position(OrderSide.BUY)
-                elif position.side == BUY and self.exit_sell_conditions(last_index):
-                    self.__close_position(OrderSide.SELL)
-
-        if self.mode == Mode.BACKTEST:
-            enter_exit_position()
-        else:
+        if self.mode == Mode.LIVE:
             self.__update_indicators(candles)
-            enter_exit_position()
+
+        last_index = len(candles) - 1
+        position = self.get_position(self.candles.symbol)
+
+        if position is None:
+            if self.entry_buy_conditions(last_index):
+                self.__enter_position(OrderSide.BUY)
+            elif self.entry_sell_conditions(last_index):
+                self.__enter_position(OrderSide.SELL)
+        else:
+            if position.side == SELL and self.exit_buy_conditions(last_index):
+                self.__exit_position(position)
+            elif position.side == BUY and self.exit_sell_conditions(last_index):
+                self.__exit_position(position)
