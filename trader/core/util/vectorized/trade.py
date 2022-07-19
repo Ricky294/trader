@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import numpy as np
-import nputils as npu
 import talib
 
 from trader.core.enumerate import MA

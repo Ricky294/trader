@@ -60,7 +60,7 @@ def test_stopped_loss_or_took_profit():
         high_price=200,
         low_price=100,
         open_price=150,
-        order1=LimitOrder(symbol='', side=BUY, price=170, money=500),
+        order1=LimitOrder(symbol='', side=BUY, price=170, amount=500),
         order2=TakeProfitMarketOrder(symbol='', side=SELL, stop_price=180)
     ).price == 170
 
@@ -69,7 +69,7 @@ def test_stopped_loss_or_took_profit():
         low_price=100,
         open_price=150,
         order1=StopMarketOrder(symbol='', side=SELL, stop_price=140),
-        order2=LimitOrder(symbol='', side=SELL, price=170, money=500),
+        order2=LimitOrder(symbol='', side=SELL, price=170, amount=500),
     ).stop_price == 140
 
 
@@ -80,6 +80,6 @@ def test_get_filled_first():
         open_price=120,
         take_profit_order=TakeProfitMarketOrder(symbol='', side=SELL, stop_price=160),
         stop_order=StopMarketOrder(symbol='', side=SELL, stop_price=110),
-        exit_order=MarketOrder(symbol='', side=SELL, money=500),
+        exit_order=MarketOrder(symbol='', side=SELL, amount=500),
         trailing_stop_order=None,
     ).type == 'MARKET'

@@ -2,10 +2,10 @@ import numpy as np
 
 from trader.core.enumerate import OrderSide
 from trader.core.model import Position
-from trader.core.strategy import AutoStrategy
+from trader.core.strategy import CallbackStrategy
 
-from trader.backtest import BacktestFuturesTrader
-from trader.backtest.model import BacktestBalance
+from trader.backtest import BacktestFuturesBroker
+from trader.core.model import Balance
 from trader.data.model import Candles
 
 from trader.ui.enumerate import Candlestick
@@ -35,9 +35,9 @@ if __name__ == "__main__":
         market="SPOT",
     )
 
-    strategy = AutoStrategy(
-        trader=BacktestFuturesTrader(
-            balance=BacktestBalance(asset=asset, free=cash),
+    strategy = CallbackStrategy(
+        broker=BacktestFuturesBroker(
+            balance=Balance(asset=asset, free=cash),
             maker_fee_rate=0.0002,
             taker_fee_rate=0.0004,
         ),
@@ -45,8 +45,8 @@ if __name__ == "__main__":
         leverage=1,
         trade_ratio=0.5,
         asset=asset,
-        entry_price=entry_logic,
-        exit_price=exit_logic,
+        enter_position_callback=entry_logic,
+        exit_position_callback=exit_logic,
     )
 
     strategy.run()

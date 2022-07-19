@@ -14,17 +14,15 @@ class Positions(Columnar):
         self.symbol = np.array([pos.symbol for pos in positions])
 
         self.side = np.array([pos.side for pos in positions])
-        self.money = np.array([pos.money for pos in positions])
+        self.amount = np.array([pos.amount for pos in positions])
         self.quantity = np.array([pos.quantity for pos in positions])
         self.leverage = np.array([pos.leverage for pos in positions])
 
-        self.entry_time = np.array([pos.entry_time for pos in positions])
+        self.entry_time = np.array([pos.time for pos in positions])
         self.entry_price = np.array([pos.entry_price for pos in positions])
-        self.entry_fee = np.array([pos.entry_fee for pos in positions])
 
         self.exit_time = np.array([pos.exit_time for pos in positions])
         self.exit_price = np.array([pos.exit_price for pos in positions])
-        self.exit_fee = np.array([pos.exit_fee for pos in positions])
         self.profit = np.array([pos.profit for pos in positions])
 
     @property
@@ -41,15 +39,11 @@ class Positions(Columnar):
 
     @property
     def long_money(self):
-        return self.money[self.side == LONG]
+        return self.amount[self.side == LONG]
 
     @property
     def long_quantity(self):
         return self.quantity[self.side == LONG]
-
-    @property
-    def long_entry_fee(self):
-        return self.entry_fee[self.side == LONG]
 
     @property
     def short_entry_time(self):
@@ -65,15 +59,11 @@ class Positions(Columnar):
 
     @property
     def short_money(self):
-        return self.money[self.side == SHORT]
+        return self.amount[self.side == SHORT]
 
     @property
     def short_quantity(self):
         return self.quantity[self.side == SHORT]
-
-    @property
-    def short_entry_fee(self):
-        return self.entry_fee[self.side == SHORT]
 
     @property
     def long_exit_time(self):
@@ -90,14 +80,6 @@ class Positions(Columnar):
     @property
     def short_exit_price(self):
         return self.exit_price[self.side == SHORT]
-
-    @property
-    def long_exit_fee(self):
-        return self.exit_fee[self.side == LONG]
-
-    @property
-    def short_exit_fee(self):
-        return self.exit_fee[self.side == SHORT]
 
     @property
     def long_profit(self):
@@ -170,22 +152,34 @@ class Positions(Columnar):
         """
         Returns the largest profit of all trades.
         """
-        return np.max(self.positive_profit)
+        try:
+            return np.max(self.positive_profit)
+        except ValueError:
+            return .0
 
     @property
     def largest_profit_date(self):
         """Returns the date of the largest winning trade."""
-        return self.exit_time[np.where(self.profit == self.largest_profit)[0][0]]
+        try:
+            return self.exit_time[np.where(self.profit == self.largest_profit)[0][0]]
+        except IndexError:
+            return None
 
     @property
-    def largest_loss(self) -> float:
+    def largest_loss(self):
         """Returns the largest loss of all trades."""
-        return np.min(self.negative_profit)
+        try:
+            return np.min(self.negative_profit)
+        except ValueError:
+            return .0
 
     @property
     def largest_loss_date(self):
         """Return the date of the largest loosing trade."""
-        return self.exit_time[np.where(self.profit == self.largest_loss)[0][0]]
+        try:
+            return self.exit_time[np.where(self.profit == self.largest_loss)[0][0]]
+        except IndexError:
+            return None
 
     @property
     def number_of_trades(self):
@@ -227,7 +221,10 @@ class Positions(Columnar):
             - (Win rate * Average of winning trades) / (Loss rate * Average of loosing trades)
         :return:
         """
-        return (self.win_rate * self.average_profit) / (self.loss_rate * abs(self.average_loss))
+        try:
+            return (self.win_rate * self.average_profit) / (self.loss_rate * abs(self.average_loss))
+        except ZeroDivisionError:
+            return .0
 
     @property
     def expectancy(self):
@@ -244,12 +241,18 @@ class Positions(Columnar):
     @property
     def average_profit(self):
         """Sum of the profitable trades / number of winning trades."""
-        return self.sum_profit / self.number_of_wins
+        try:
+            return self.sum_profit / self.number_of_wins
+        except ZeroDivisionError:
+            return .0
 
     @property
     def average_loss(self):
         """Sum of the loosing trades / number of loosing trades."""
-        return self.sum_loss / self.number_of_losses
+        try:
+            return self.sum_loss / self.number_of_losses
+        except ZeroDivisionError:
+            return .0
 
     @property
     def average_profit_and_loss(self):
@@ -261,4 +264,7 @@ class Positions(Columnar):
 
         Note: Same as self.expectancy
         """
-        return self.sum_profit_and_loss / self.number_of_trades
+        try:
+            return self.sum_profit_and_loss / self.number_of_trades
+        except ZeroDivisionError:
+            return .0

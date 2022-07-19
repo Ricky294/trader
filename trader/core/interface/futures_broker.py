@@ -3,14 +3,13 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from trader.core.enumerate import OrderSide, TimeInForce
-from trader.core.model import Balance, Position, OrderGroup, MarketOrder, LimitOrder
-from trader.data.model import Candles
+from trader.core.model import Balance, Position, MarketOrder, LimitOrder, Order
 
 
-class FuturesTrader(ABC):
+class FuturesBroker(ABC):
 
     @abstractmethod
-    def cancel_orders(self, symbol: str) -> OrderGroup:
+    def cancel_orders(self, symbol: str) -> list[Order]:
         """
         Cancels all open orders on `symbol`.
 
@@ -21,21 +20,22 @@ class FuturesTrader(ABC):
     @abstractmethod
     def enter_position(
             self,
-            money: float,
-            side: int | OrderSide,
+            symbol: str,
+            amount: float,
+            asset: str,
+            side: int | str | OrderSide,
             leverage: int,
-            candles: Candles,
             price: float = None,
             profit_price: float = None,
             stop_price: float = None,
             trailing_stop_rate: float = None,
             trailing_stop_activation_price: float = None,
-    ) -> OrderGroup:
+    ) -> list[Order]:
         """
         Creates orders based on parameters.
 
-        :param symbol: Symbol to create orders against.
-        :param money: Amount of money for position.
+        :param candles: Latest candles object.
+        :param amount: Amount of amount for position.
         :param side: Buy or sell.
         :param leverage: Leverage is set before order creation.
         :param price: If None creates a market order, otherwise a limit order.
@@ -43,29 +43,28 @@ class FuturesTrader(ABC):
         :param stop_price: If not None, creates a stop loss market order.
         :return: Created orders.
         """
-        pass
+        ...
 
     def close_position(
             self,
-            candles: Candles,
             price: float = None,
             time_in_force: str | TimeInForce = "GTC"
     ):
         if price:
-            return self.close_position_limit(candles=candles, price=price, time_in_force=time_in_force)
-        return self.close_position_market(candles=candles)
+            return self.close_position_limit(price=price, time_in_force=time_in_force)
+        return self.close_position_market()
 
     @abstractmethod
-    def close_position_market(self, candles: Candles) -> MarketOrder | None: ...
+    def close_position_market(self) -> MarketOrder | None: ...
 
     @abstractmethod
-    def close_position_limit(self, candles: Candles, price: float, time_in_force: str | TimeInForce = "GTC") -> LimitOrder: ...
+    def close_position_limit(self, price: float, time_in_force: str | TimeInForce = "GTC") -> LimitOrder: ...
 
     @abstractmethod
     def get_balance(self, asset: str) -> Balance | None: ...
 
     @abstractmethod
-    def get_open_orders(self, symbol: str) -> OrderGroup: ...
+    def get_open_orders(self, symbol: str) -> list[Order]: ...
 
     @abstractmethod
     def get_position(self, symbol: str) -> Position | None: ...

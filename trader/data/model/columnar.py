@@ -93,7 +93,7 @@ def format_trade(
             return PrecisionFormat.BALANCE
         elif 'fee' in col:
             return PrecisionFormat.FEE
-        elif 'money' in col:
+        elif 'amount' in col:
             return PrecisionFormat.MONEY
         elif 'price' in col:
             return PrecisionFormat.PRICE

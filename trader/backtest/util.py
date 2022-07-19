@@ -1,15 +1,20 @@
 from __future__ import annotations
 
 from trader.backtest.model.trailing_stop import BacktestTrailingStopMarketOrder
+from trader.core.const.order_type import MARKET, LIMIT, TAKE_PROFIT_MARKET, STOP_MARKET, TRAILING_STOP_MARKET, \
+    STOP_LIMIT, TAKE_PROFIT_LIMIT
 from trader.core.const.trade_actions import BUY, SELL
+from trader.core.enumerate import OrderSide
 from trader.core.model import (
     Order,
     MarketOrder,
     LimitOrder,
     TakeProfitMarketOrder,
     StopMarketOrder,
-    TrailingStopMarketOrder, StopLimitOrder, TakeProfitLimitOrder,
+    TrailingStopMarketOrder, StopLimitOrder, TakeProfitLimitOrder, Position, Balance,
 )
+from trader.core.util.trade import side_to_long_short
+from trader.data.model import Candles
 
 
 def is_stop_loss_hit(
@@ -71,9 +76,9 @@ def is_order_filled(
 ):
     if order is None:
         return False
-    elif order.type == 'MARKET':
+    elif order.type == MARKET:
         return True
-    elif order.type == 'LIMIT':
+    elif order.type == LIMIT:
         return is_limit_buy_hit(
             low_price=low_price,
             order=order,
@@ -81,19 +86,19 @@ def is_order_filled(
             high_price=high_price,
             order=order,
         )
-    elif order.type == 'TAKE_PROFIT_MARKET':
+    elif order.type == TAKE_PROFIT_MARKET:
         return is_take_profit_hit(
             high_price=high_price,
             low_price=low_price,
             order=order,
         )
-    elif order.type == 'STOP_MARKET':
+    elif order.type == STOP_MARKET:
         return is_stop_loss_hit(
             high_price=high_price,
             low_price=low_price,
             order=order,
         )
-    elif order.type == 'TRAILING_STOP_MARKET':
+    elif order.type == TRAILING_STOP_MARKET:
         return is_trailing_stop_hit(
             high_price=high_price,
             low_price=low_price,
@@ -122,6 +127,100 @@ def get_closer_order(
     return order2
 
 
+def get_filled_orders(candles: Candles, orders: list[Order]) -> list[Order]:
+    """
+    Returns all filled orders in the order they got filled.
+
+    :param candles:
+    :param orders:
+    :return:
+    """
+    def sort_orders():
+        for order in orders:
+            if order.type == MARKET:
+                yield -1, order
+            else:
+                if order.type == LIMIT:
+                    price = order.price
+                elif order.type in [STOP_MARKET, TAKE_PROFIT_MARKET]:
+                    price = order.stop_price
+                else:   # order.type in [STOP_LIMIT, TAKE_PROFIT_LIMIT]
+                    raise NotImplementedError
+
+                if candles.latest_low_price < price < candles.latest_high_price:
+                    yield abs(price - candles.latest_open_price), order
+
+    orders = list(sort_orders())
+    orders.sort(key=lambda o: o[0])
+    return [order for _, order in orders]
+
+
+def is_position_liquidated(
+        side: OrderSide | str,
+        leverage: int,
+        average_entry_price: float,
+        maintenance_margin_rate: float,
+        candles: Candles,
+):
+    side = side_to_long_short(side)
+    liq_price = calculate_liquidation_price(
+        side=side,
+        leverage=leverage,
+        average_entry_price=average_entry_price,
+        maintenance_margin_rate=maintenance_margin_rate
+    )
+
+    if side == 'LONG':
+        return liq_price > candles.latest_low_price
+    return liq_price < candles.high_prices
+
+
+def calculate_liquidation_price(
+        side: OrderSide | str,
+        leverage: int,
+        average_entry_price: float,
+        maintenance_margin_rate: float
+):
+    """
+
+    :param side
+    :param average_entry_price:
+    :param leverage:
+    :param maintenance_margin_rate:
+    :return:
+
+    More info: https://help.bybit.com/hc/en-us/articles/360039261334-How-to-calculate-Liquidation-Price-Inverse-Contract-
+
+    :example:
+    >>> calculate_liquidation_price('LONG', 1000, 1, 0)
+    500.0
+
+    >>> calculate_liquidation_price('LONG', 8000, 50, 0.005)
+    7881.773399014778
+
+    >>> calculate_liquidation_price('SHORT', 8000, 50, 0.005)
+    8121.827411167513
+    """
+
+    side = side_to_long_short(side)
+
+    if side == 'LONG':
+        return average_entry_price * leverage / (leverage + 1 - (maintenance_margin_rate * leverage))
+    return average_entry_price * leverage / (leverage - 1 + (maintenance_margin_rate * leverage))
+
+
+def get_position_liquidation_price(balance: Balance, position: Position | None):
+    trade_ratio = position.amount / balance.free
+    leveraged_ratio = trade_ratio * position.leverage
+
+    # entry: 500
+    # side: SHORT
+    # trade ratio: 1
+    # liquidation: 1000
+
+    position.entry_price
+
+
 def get_filled_first(
         high_price: float,
         low_price: float,
@@ -134,7 +233,7 @@ def get_filled_first(
 
     exit_hit = is_order_filled(high_price=high_price, low_price=low_price, order=exit_order)
 
-    if exit_hit and exit_order.type == 'MARKET':
+    if exit_hit and exit_order.type == MARKET:
         return exit_order
 
     take_profit_hit = is_order_filled(high_price=high_price, low_price=low_price, order=take_profit_order)

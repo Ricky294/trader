@@ -1,25 +1,28 @@
 from abc import abstractmethod
 
-from trader.data.model import Candles
-from trader.core.interface import FuturesTrader
-from trader.core.model import Position
+from trader.core.interface import FuturesBroker
+from trader.core.model import Position, Balance, Order
 from trader.core.strategy import Strategy
+
+from trader.data.model import Candles
 
 
 class ManagedPositionStrategy(Strategy):
 
-    def __init__(self, trader: FuturesTrader, candles: Candles):
-        super(ManagedPositionStrategy, self).__init__(trader, candles)
+    def __init__(self, broker: FuturesBroker, candles: Candles, asset: str):
+        super(ManagedPositionStrategy, self).__init__(broker=broker, candles=candles, asset=asset)
 
     def __call__(self, candles: Candles):
-        position = self.trader.get_position(candles.symbol)
-        if position is None:
-            self.not_in_position(candles)
+        position = self.broker.get_position(candles.symbol)
+        balance = self.broker.get_balance(self.asset)
+        open_orders = self.broker.get_open_orders(candles.symbol)
+        if position:
+            self.in_position(candles, balance, open_orders, position)
         else:
-            self.in_position(candles, position)
+            self.not_in_position(candles, balance, open_orders)
 
     @abstractmethod
-    def in_position(self, candles: Candles, position: Position): ...
+    def in_position(self, candles: Candles, balance: Balance, open_order: list[Order], position: Position): ...
 
     @abstractmethod
-    def not_in_position(self, candles: Candles): ...
+    def not_in_position(self, candles: Candles, balance: Balance, open_order: list[Order]): ...

@@ -6,6 +6,21 @@ from trader.core.const.trade_actions import (
     BUY as BUY_,
     SELL as SELL_,
 )
+from trader.core.const.order_type import (
+    LIMIT as LIMIT_,
+    MARKET as MARKET_,
+    STOP_LIMIT as STOP_,
+    STOP_MARKET as STOP_MARKET_,
+    TAKE_PROFIT_LIMIT as TAKE_PROFIT_,
+    TAKE_PROFIT_MARKET as TAKE_PROFIT_MARKET_,
+    TRAILING_STOP_MARKET as TRAILING_STOP_MARKET_,
+)
+from trader.core.const.time_in_force import (
+    GTC as GTC_,
+    IOC as IOC_,
+    FOK as FOK_,
+    GTX as GTX_,
+)
 
 
 class OrderSide(Enum):
@@ -17,16 +32,8 @@ class OrderSide(Enum):
 
     @classmethod
     def from_value(cls, side: str | int):
-        if isinstance(side, str):
-            from ..util.trade import str_side_to_int
-            side = str_side_to_int(side)
-
-        if side == BUY_:
-            return cls.BUY
-        elif side == SELL_:
-            return cls.SELL
-        else:
-            ValueError(f'Parameter "side" must be {BUY_} or {SELL_}')
+        from ..util.trade import side_to_int
+        return side_to_int(side)
 
     @classmethod
     def from_quantity(cls, quantity: float):
@@ -70,10 +77,10 @@ class OrderSide(Enum):
 
 
 class TimeInForce(Enum):
-    GTC = "GTC"
-    IOC = "IOC"
-    FOK = "FOK"
-    GTX = "GTX"
+    GTC = GTC_
+    IOC = IOC_
+    FOK = FOK_
+    GTX = GTX_
 
     def __str__(self):
         return self.value
@@ -90,13 +97,13 @@ class TimeInForce(Enum):
 
 
 class OrderType(Enum):
-    LIMIT = "LIMIT"
-    MARKET = "MARKET"
-    STOP_LIMIT = "STOP"
-    STOP_MARKET = "STOP_MARKET"
-    TAKE_PROFIT_LIMIT = "TAKE_PROFIT"
-    TAKE_PROFIT_MARKET = "TAKE_PROFIT_MARKET"
-    TRAILING_STOP_MARKET = "TRAILING_STOP_MARKET"
+    LIMIT = LIMIT_
+    MARKET = MARKET_
+    STOP_LIMIT = STOP_
+    STOP_MARKET = STOP_MARKET_
+    TAKE_PROFIT_LIMIT = TAKE_PROFIT_
+    TAKE_PROFIT_MARKET = TAKE_PROFIT_MARKET_
+    TRAILING_STOP_MARKET = TRAILING_STOP_MARKET_
 
     def __str__(self):
         return self.value

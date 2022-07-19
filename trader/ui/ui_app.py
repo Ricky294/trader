@@ -3,12 +3,14 @@ from __future__ import annotations
 from typing import Iterable
 
 import pandas as pd
-from dash import dash_table, Dash, html, dcc, Input, Output
 import dash_bootstrap_components as dbc
+from dash import dash_table, Dash, html, dcc, Input, Output
 
+from trader.core.model.fees import Fees
+from trader.core.util.format import title
 from trader.data.model import Candles
 
-from trader.config import PROFIT_PRECISION
+from trader.config import PROFIT_PRECISION, BALANCE_PRECISION
 
 from trader.core.enumerate import TimeFormat
 from trader.core.model.balances import Balances
@@ -30,11 +32,14 @@ class UIApp:
             balances: Iterable[Balance],
             orders: Iterable[Order],
             positions: Iterable[Position],
+            entry_fees: Iterable[float],
+            exit_fees: Iterable[float],
     ):
         self.candles = candles
         self.positions = Positions(positions)
         self.orders = Orders(orders)
         self.balances = Balances(balances)
+        self.fees = Fees(entry_fees, exit_fees)
 
     @staticmethod
     def _main_layout():
@@ -50,7 +55,7 @@ class UIApp:
             html.Div(id='tab_content'),
         ])
 
-    def run_ui_app(
+    def run(
             self,
             candlestick_type=Candlestick.LINE,
             volume_type=Volume.LINE,
@@ -58,7 +63,7 @@ class UIApp:
     ):
         app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
-        trade_graphs = self._trade_graphs(
+        trade_graphs = self._create_trade_graphs(
             candlestick_type=candlestick_type,
             volume_type=volume_type,
             custom_graphs=custom_graphs,
@@ -84,25 +89,25 @@ class UIApp:
                 ])
             elif tab == 'stats_tab':
                 return html.Div(
-                    [self._trade_results_table()],
+                    [self._create_stats_table()],
                     id='positions',
                     style=tab_style,
                 )
             elif tab == 'equity_tab':
                 return html.Div(
-                    [self._equity_table()],
+                    [self._create_equity_table()],
                     id='equity',
                     style=tab_style,
                 )
             elif tab == 'positions_tab':
                 return html.Div(
-                    [self._positions_table()],
+                    [self._create_positions_table()],
                     id='positions',
                     style=tab_style,
                 )
             elif tab == 'orders_tab':
                 return html.Div(
-                    [self._orders_table()],
+                    [self._create_orders_table()],
                     id='positions',
                     style=tab_style,
                 )
@@ -110,9 +115,14 @@ class UIApp:
         # This must be called last to avoid bugs!
         app.run_server(debug=True)
 
-    def _trade_results_table(self):
+    def _create_stats_table(self):
+        largest_loss_date = self.positions.largest_loss_date
+        largest_loss_date = format_time(largest_loss_date, TimeFormat.PANDAS) if largest_loss_date else '-'
+        largest_profit_date = self.positions.largest_profit_date
+        largest_profit_date = format_time(largest_profit_date, TimeFormat.PANDAS) if largest_profit_date else '-'
+
         return dash_table.DataTable(
-            id='trade_results_table',
+            id='stats_table',
             columns=[
                 {'name': 'Name', 'id': 'name', 'selectable': True},
                 {'name': 'Value', 'id': 'value', 'selectable': True},
@@ -122,29 +132,31 @@ class UIApp:
                 {'name': 'Total trades', 'value': fmt.num(self.positions.number_of_trades)},
                 {
                     'name': 'Wins - % Win',
-                    'value': f'({fmt.num(self.positions.number_of_wins)}) {fmt.num(self.positions.win_rate, prec=3, perc=True)}'
+                    'value': f'({fmt.num(self.positions.number_of_wins)})'
+                             f' {fmt.num(self.positions.win_rate, prec=3, perc=True)}'
                 },
                 {
                     'name': 'Losses - % Loss',
-                    'value': f'({fmt.num(self.positions.number_of_losses)}) {fmt.num(self.positions.loss_rate, prec=3, perc=True)}'
+                    'value': f'({fmt.num(self.positions.number_of_losses)}) '
+                             f' {fmt.num(self.positions.loss_rate, prec=3, perc=True)}'
                 },
                 {
                     'name': 'Largest profit',
                     'value': fmt.num(self.positions.largest_profit, PROFIT_PRECISION, plus=True),
-                    'date': format_time(self.positions.largest_profit_date, TimeFormat.PANDAS),
+                    'date': largest_profit_date,
                 },
                 {
                     'name': 'Largest loss',
                     'value': fmt.num(self.positions.largest_loss, PROFIT_PRECISION),
-                    'date': format_time(self.positions.largest_loss_date, TimeFormat.PANDAS),
+                    'date': largest_loss_date,
                 },
                 {'name': 'Average profit', 'value': fmt.num(self.positions.average_profit, PROFIT_PRECISION, plus=True)},
                 {'name': 'Average loss', 'value': fmt.num(self.positions.average_loss, PROFIT_PRECISION)},
                 {'name': 'Sum P&L', 'value': fmt.num(self.positions.sum_profit_and_loss, PROFIT_PRECISION)},
                 {'name': "Average P&L / Expectancy", 'value': fmt.num(self.positions.average_profit_and_loss, PROFIT_PRECISION)},
                 {'name': 'Profit factor', 'value': fmt.num(self.positions.profit_factor, PROFIT_PRECISION)},
-                {'name': 'Start balance'},
-                {'name': 'End balance'}
+                {'name': 'Start balance', 'value': fmt.num(self.balances.balance[0], BALANCE_PRECISION)},
+                {'name': 'End balance', 'value': fmt.num(self.balances.balance[-1], BALANCE_PRECISION)}
             ],
             tooltip_data=[
                 {'name': 'Number of trades.'},
@@ -162,58 +174,40 @@ class UIApp:
             tooltip_duration=None,
         )
 
-    def _equity_table(self):
+    @staticmethod
+    def _create_table(df: pd.DataFrame, table_id: str, selectable=True, hideable=True):
+        return dash_table.DataTable(
+            id=table_id,
+            columns=[
+                {'name': title(name), 'id': name, 'selectable': selectable, 'hideable': hideable}
+                for name in df.columns
+            ],
+            data=df.to_dict('records'),
+            filter_action='native',
+            sort_action='native',
+            page_size=18,
+            page_current=0,
+        )
+
+    def _create_equity_table(self):
         formatted_equity = format_trade(self.balances)
         equity_df = pd.DataFrame(formatted_equity)
 
-        return dash_table.DataTable(
-            id='equity_table',
-            columns=[
-                {'name': name, 'id': name, 'selectable': True, 'hideable': True}
-                for name in equity_df.columns
-            ],
-            data=equity_df.to_dict('records'),
-            filter_action='native',
-            sort_action='native',
-            page_size=18,
-            page_current=0,
-        )
+        return self._create_table(equity_df, 'equity_table')
 
-    def _positions_table(self):
+    def _create_positions_table(self):
         formatted_positions = format_trade(self.positions)
         pos_df = pd.DataFrame(formatted_positions)
 
-        return dash_table.DataTable(
-            id='positions_table',
-            columns=[
-                {'name': name, 'id': name, 'selectable': True, 'hideable': True}
-                for name in pos_df.columns
-            ],
-            data=pos_df.to_dict('records'),
-            filter_action='native',
-            sort_action='native',
-            page_size=18,
-            page_current=0,
-        )
+        return self._create_table(pos_df, 'positions_table')
 
-    def _orders_table(self):
+    def _create_orders_table(self):
         formatted_orders = format_trade(self.orders)
         ord_df = pd.DataFrame(formatted_orders)
 
-        return dash_table.DataTable(
-            id='orders_table',
-            columns=[
-                {'name': name, 'id': name, 'selectable': True, 'hideable': True}
-                for name in ord_df.columns
-            ],
-            data=ord_df.to_dict('records'),
-            filter_action='native',
-            sort_action='native',
-            page_size=18,
-            page_current=0,
-        )
+        return self._create_table(ord_df, 'orders_table')
 
-    def _trade_graphs(
+    def _create_trade_graphs(
             self,
             candlestick_type=Candlestick.LINE,
             volume_type=Volume.LINE,
@@ -223,11 +217,13 @@ class UIApp:
             candles=self.candles,
             positions=self.positions,
             balances=self.balances,
+            fees=self.fees
         )
 
         graphs.add_capital_graph()
         graphs.add_profit_graph()
-        graphs.add_candlestick_graph(candlestick_type, volume_type)
+        graphs.add_candlestick_graph(candlestick_type)
+        graphs.add_volume_graph(volume_type)
         graphs.add_graphs(custom_graphs)
         figure = graphs.create_figure()
         return figure

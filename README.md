@@ -32,6 +32,8 @@ assigned to a security.
 - **Asset:** 
 - **Balance:** Refers to an individual account balance.
 - **Position:** Refers to a Futures (market) position.
+- **Long position:** The investor has bought and owns shares of the asset.
+- **Short position:** The investor owes the asset to another person but has not bought them yet.
 - **Order side:** Determines buy or sell when creating order or position.
 - **Order type:** Determines the type of the order.
   - *Limit:* Filled when the price hits the entry price.
@@ -56,7 +58,7 @@ A trading strategy is based on predefined rules and criteria
 used when making trading decisions.
 - **Indicator:** Technical indicators are used to produce buy and sell signals.
 - **Backtesting:** Allows a trader to simulate a strategy on historical data to generate, analyze and visualize results.
-- **Live trading:** Refers to real time trading with real money on a real market.
+- **Live trading:** Refers to real time trading with real amount on a real market.
 - **Maker order:** Goes into the order book. Gets executed at a specified price (e.g. Limit order).
 - **Taker order:** Executes instantly by taking liquidity out from the order book (e.g. Market order).
 - **Liquidation:** Position liquidation is a forced action and happens automatically 
@@ -118,11 +120,11 @@ by writing a python script or by using the UI app.*
 from trader.data.binance import get_store_candles
 from trader.data.database import HDF5CandleStorage
 
-from trader.backtest import BacktestFuturesTrader
-from trader.backtest.model import BacktestBalance
+from trader.backtest import BacktestFuturesBroker
+from trader.core.model import Balance
 from trader.core.enumerate import MA
 from trader.core.indicator import DoubleMAIndicator
-from trader.core.strategy import AutoIndicatorStrategy
+from trader.core.strategy import IndicatorStrategy
 
 from trader.ui.enumerate import Candlestick
 
@@ -139,9 +141,9 @@ candles = get_store_candles(
 
 dma = DoubleMAIndicator(fast_period=30, slow_period=50, fast_type=MA.EMA, slow_type=MA.EMA)
 
-strategy = AutoIndicatorStrategy(
-  trader=BacktestFuturesTrader(
-    balance=BacktestBalance(asset=asset, free=start_cash),
+strategy = IndicatorStrategy(
+  trader=BacktestFuturesBroker(
+    balance=Balance(asset=asset, free=start_cash),
     maker_fee_rate=0.0002,
     taker_fee_rate=0.0004,
   ),

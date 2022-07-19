@@ -6,134 +6,95 @@ from typing import Callable, Iterable
 
 from tqdm import trange
 
+from trader.backtest import BacktestFuturesBroker
+
+from trader.config import MONEY_PRECISION
+from trader.core.enumerate import Mode
+from trader.core.exception import TraderError
+from trader.core.indicator import Indicator
+from trader.core.interface import FuturesBroker
+from trader.core.log import get_core_logger
+
 from trader.data.binance import candle_stream
 from trader.data.model import Candles
 
-from trader.config import MONEY_PRECISION
-from trader.backtest import BacktestFuturesTrader, get_backtest_logger
-from trader.core.enumerate import TimeInForce, OrderSide, Mode
-from trader.core.exception import TraderError
-from trader.core.indicator import Indicator
-from trader.core.interface import FuturesTrader
-from trader.core.log import get_core_logger
-from trader.live.log import get_live_logger
-from trader.live.binance import BinanceFuturesTrader
+from trader.live.binance import BinanceFuturesBroker
 
 from trader.ui import UIApp, CustomGraph
 from trader.ui.enumerate import Candlestick, Volume
 
 
+def _call_with_candles(func: Callable, candles: Candles):
+    # Use this wrapper to pass candles to functions instead of saving candles as instance variable in __init__.
+    def wrapper(*args, **kwargs):
+        return func(candles, *args, **kwargs)
+
+    return wrapper
+
+
 class Strategy(Callable, ABC):
 
-    def __init__(self, trader: FuturesTrader, candles: Candles):
-        self.trader = trader
-        self.candles = candles
-        if isinstance(trader, BacktestFuturesTrader):
+    def __init__(self, candles: Candles, broker: FuturesBroker, asset: str):
+        self.broker = broker
+        self.asset = asset
+
+        self.plot = _call_with_candles(self.__plot, candles)
+        if isinstance(broker, BacktestFuturesBroker):
             self.mode = Mode.BACKTEST
-            self.run = self.__backtest_run
-            self.logger = get_backtest_logger()
-        elif isinstance(trader, BinanceFuturesTrader):
+            self.run = _call_with_candles(self.__backtest_run, candles)
+        elif isinstance(broker, BinanceFuturesBroker):
             self.mode = Mode.LIVE
-            self.run = self.__binance_run
-            self.logger = get_live_logger()
+            self.run = _call_with_candles(self.__binance_run, candles)
         else:
-            raise TraderError(f'Unsupported trader: {type(trader)}.')
+            raise TraderError(f'Unsupported broker: {type(broker).__class__.__name__}.')
 
     @abstractmethod
-    def __call__(self, candles: Candles): ...
+    def __call__(self, candles: Candles):
+        ...
 
-    def __binance_run(self):
-        candle_stream(candles=self.candles, on_candle_close=self.__call__, on_candle=lambda: ())
+    def __binance_run(self, candles: Candles):
+        candle_stream(candles=candles, on_candle_close=self.__call__, on_candle=lambda: ())
 
-    def __backtest_run(self):
-        if not isinstance(self.trader, BacktestFuturesTrader):
-            raise TraderError(f'Unsupported trader type: {type(self.trader)}')
+    def __backtest_run(self, candles: Candles):
+        if not isinstance(self.broker, BacktestFuturesBroker):
+            raise TraderError(f'Unsupported broker: {type(self.broker).__class__.__name__}')
 
-        get_core_logger().info(f'Running backtest on {len(self.candles)} candles.')
+        get_core_logger().info(f'Running backtest on {len(candles)} candles.')
 
-        replayer = self.candles.replayer()
-        candle: Candles = next(replayer)
-        self(candle)
-        for _, candles in zip(trange(len(self.candles)), replayer):
-            self.trader(candles)
-            self(candles)
+        for _, candles in zip(trange(len(candles)), candles.replayer()):
+            self.broker(candles)
+            self.__call__(candles)
+
+        self.broker.finished()
 
         get_core_logger().info(
-            f'Finished backtesting. Entered {len(self.trader.positions)} positions. '
-            f'Final balance: {self.trader.balances[-1].free:.{MONEY_PRECISION}f} {self.trader.balances[-1].asset}'
+            f'Finished backtesting. Entered {len(self.broker.positions)} positions. '
+            f'Final balance: {self.broker.balances[-1].free:.{MONEY_PRECISION}f} {self.broker.balances[-1].asset}'
         )
 
-    def plot(
+    def __plot(
             self,
+            candles: Candles,
             candlestick_type: Candlestick = Candlestick.LINE,
             volume_type: Volume = Volume.LINE,
             custom_graphs: Iterable[CustomGraph | Indicator] = ()
     ):
 
-        if not isinstance(self.trader, BacktestFuturesTrader):
-            raise TraderError('Strategy can be plotted only if trader is instance of BacktestFuturesTrader')
+        if not isinstance(self.broker, BacktestFuturesBroker):
+            raise TraderError(f'Strategy can be plotted only if broker is instance of BacktestFuturesBroker.')
 
         UIApp(
-            candles=self.candles,
-            positions=self.trader.positions,
-            orders=self.trader.orders,
-            balances=self.trader.balances,
-        ).run_ui_app(
+            candles=candles,
+            positions=self.broker.positions,
+            orders=self.broker.orders,
+            balances=self.broker.balances,
+            entry_fees=self.broker.entry_fees,
+            exit_fees=self.broker.exit_fees,
+        ).run(
             candlestick_type=candlestick_type,
             volume_type=volume_type,
             custom_graphs=custom_graphs
         )
-
-    def create_position(
-            self,
-            candles: Candles,
-            money: float,
-            side: int | OrderSide,
-            leverage: int,
-            price: float | None = None,
-            profit_price: float | None = None,
-            stop_price: float | None = None
-    ):
-        orders = self.trader.enter_position(
-            candles=candles,
-            money=money,
-            side=side,
-            leverage=leverage,
-            price=price,
-            profit_price=profit_price,
-            stop_price=stop_price,
-        )
-        return orders
-
-    def cancel_orders(self, symbol: str):
-        orders = self.trader.cancel_orders(symbol)
-        return orders
-
-    def get_open_orders(self, symbol: str):
-        orders = self.trader.get_open_orders(symbol)
-        return orders
-
-    def set_leverage(self, symbol: str, leverage: int):
-        self.trader.set_leverage(symbol=symbol, leverage=leverage)
-
-    def close_position(self, candles: Candles, price: float = None, time_in_force: str | TimeInForce = 'GTC'):
-        self.trader.close_position(candles=candles, price=price, time_in_force=time_in_force)
-
-    def close_position_limit(self, candles: Candles, price: float, time_in_force: str | TimeInForce = 'GTC'):
-        order = self.trader.close_position_limit(candles=candles, price=price, time_in_force=time_in_force)
-        return order
-
-    def close_position_market(self, candles: Candles):
-        order = self.trader.close_position_market(candles=candles)
-        return order
-
-    def get_position(self, symbol: str):
-        position = self.trader.get_position(symbol)
-        return position
-
-    def get_balance(self, asset: str):
-        balance = self.trader.get_balance(asset)
-        return balance
 
 
 class BacktestRunParams:

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import logging
+
 from binance.client import Client
 
 from trader.core.enumerate import OrderSide, TimeInForce
-from trader.core.interface import FuturesTrader
+from trader.core.interface import FuturesBroker
 from trader.core.model import Order
 from trader.core.util.trade import create_orders
 from trader.core.exception import BalanceError, PositionError
@@ -11,9 +13,13 @@ from trader.core.exception import BalanceError, PositionError
 from .balance import BinanceBalance
 from .position import BinancePosition, close_position_market, close_position_limit, take_profit_market, stop_loss_market
 from .helpers import get_symbol_info, get_position
+from ..log import get_live_logger
+from ...config import LIVE_LOGGING
+from ...core.util.common import log_method_return
 
 
-class BinanceFuturesTrader(FuturesTrader):
+@log_method_return(logger=get_live_logger(), level=logging.INFO, log=LIVE_LOGGING)
+class BinanceFuturesBroker(FuturesBroker):
 
     def __init__(self, client: Client):
         super().__init__()
@@ -73,27 +79,27 @@ class BinanceFuturesTrader(FuturesTrader):
             price_precision=info.price_precision,
         )
 
-    def __in_position(self, symbol: str):
+    def _in_position(self, symbol: str):
         return self.get_position(symbol) is not None
 
     def enter_position(
             self,
             symbol: str,
-            money: float,
+            amount: float,
             side: int | OrderSide,
             leverage: int,
             price: float = None,
             take_profit_price: float = None,
             stop_loss_price: float = None,
     ):
-        if self.__in_position(symbol):
+        if self._in_position(symbol):
             raise PositionError(
                 f'Creating a {symbol} position is not allowed, because a {symbol} position is already opened.'
             )
 
         orders = create_orders(
             symbol=symbol,
-            money=money,
+            amount=amount,
             side=side,
             price=price,
             profit_price=take_profit_price,
@@ -105,7 +111,7 @@ class BinanceFuturesTrader(FuturesTrader):
         if price is None:
             price = self.get_latest_price(symbol=symbol)
 
-        quantity = money / price * leverage
+        quantity = amount / price * leverage
 
         orders = [order.to_binance_order(
             quantity=quantity,

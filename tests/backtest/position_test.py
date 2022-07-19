@@ -13,7 +13,7 @@ def test_position_long_1x_profit():
         entry_price=100,
         entry_fee=.0,
         side=LONG,
-        money=100.0,
+        amount=100.0,
         entry_order_type=OrderType.MARKET,
         quantity=1.0,
         leverage=1,
@@ -31,7 +31,7 @@ def test_position_long_1x_profit():
 
 
 def test_position_long_2x_profit():
-    pos_long2x = BacktestPosition(symbol="XYZ", entry_price=100, entry_time=1, money=100.0, side=LONG, leverage=2,
+    pos_long2x = BacktestPosition(symbol="XYZ", entry_price=100, entry_time=1, amount=100.0, side=LONG, leverage=2,
                                   entry_fee=.0)
     assert pos_long2x.profit == .0
 
@@ -48,7 +48,7 @@ def test_position_long_2x_profit():
 
 
 def test_position_short_1x_profit():
-    pos_short = BacktestPosition(symbol="XYZ", entry_price=100, entry_time=1, money=100.0, side=SHORT, leverage=1,
+    pos_short = BacktestPosition(symbol="XYZ", entry_price=100, entry_time=1, amount=100.0, side=SHORT, leverage=1,
                                  entry_fee_rate=.0)
     assert pos_short.profit == .0
 
@@ -65,7 +65,7 @@ def test_position_short_1x_profit():
 
 
 def test_position_short_2x_profit():
-    pos_short2x = BacktestPosition(symbol="XYZ", entry_price=100, entry_time=1, money=100.0, side=SHORT, leverage=2,
+    pos_short2x = BacktestPosition(symbol="XYZ", entry_price=100, entry_time=1, amount=100.0, side=SHORT, leverage=2,
                                    entry_fee=.0)
 
     assert pos_short2x.profit == .0

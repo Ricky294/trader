@@ -180,7 +180,7 @@ class ABCCandles(ABC):
     def __str__(self):
         return (
             f'Candles(symbol={self.symbol}, interval={self.interval}, '
-            f'market={self.market}, schema={self.schema}, records={self.shape[0]})'
+            f'market={self.market}, schema={self.schema}, candle_count={self.shape[0]})'
         )
 
     def __iadd__(self, other):

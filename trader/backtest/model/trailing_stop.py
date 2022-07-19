@@ -9,7 +9,7 @@ class BacktestTrailingStopMarketOrder(TrailingStopMarketOrder):
 
     __slots__ = 'current_stop', 'stopped_at'
 
-    def __update_stop_price(self, price: float):
+    def _update_stop_price(self, price: float):
         if self.stopped_at is None:
             if self.side == SELL:
                 self.stop_price = price * (1 - self.trailing_rate)
@@ -39,7 +39,7 @@ class BacktestTrailingStopMarketOrder(TrailingStopMarketOrder):
             activation_price=current_or_activation_price,
             reduce_only=reduce_only
         )
-        self.current_stop = self.__update_stop_price(current_price) if activation_price is None else None
+        self.current_stop = self._update_stop_price(current_price) if activation_price is None else None
         self.stopped_at = None
 
     def __call__(self, high_price: float, low_price: float):
@@ -50,4 +50,4 @@ class BacktestTrailingStopMarketOrder(TrailingStopMarketOrder):
                         self.stopped_at = self.current_stop
 
             else:
-                self.__update_stop_price()
+                self._update_stop_price()

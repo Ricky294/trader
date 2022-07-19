@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import pathlib
 import random
+from functools import wraps
 from typing import Callable, Iterable
 
 import yaml
@@ -170,3 +172,73 @@ def get_object_from_module(module_name: str, object_name: str):
     module = importlib.import_module(module_name)
 
     return getattr(module, object_name)
+
+
+class Immutable:
+    """
+    Makes object immutable. Disallows to set or delete attributes after __init__ gets called.
+    """
+
+    _immutable = False
+
+    def __init__(self):
+        self._immutable = True
+
+    def __delattr__(self, key):
+        if self._immutable:
+            raise AttributeError(f'Not allowed to delete attribute {key}. This object is immutable!')
+        object.__delattr__(self, key)
+
+    def __setattr__(self, key, val):
+        if self._immutable:
+            raise AttributeError(f'Not allowed to set attribute {key}. This object is immutable!')
+        object.__setattr__(self, key, val)
+
+
+def immutable(cls):
+    """Class decorator function.
+
+    Prevents setting attributes after __init__ was called.
+    """
+
+    def raise_attribute_error(obj: object, name: str, value: any):
+        raise AttributeError(
+            f'Not allowed to set {name}={value} because class {obj.__class__.__name__} is immutable.'
+        )
+
+    def init_decorator(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            func(self, *args, **kwargs)
+            self.__setattr__ = raise_attribute_error
+
+        return wrapper
+
+    cls.__init__ = init_decorator(cls.__init__)
+    return cls
+
+
+def log_method_return(logger=logging.getLogger(), level=logging.INFO, log=True):
+    """Class decorator function.
+
+    Logs the return value of public functions.
+    """
+    def decorator(cls):
+
+        def log_return(func):
+            @wraps(func)
+            def wrapper(self, *args, **kwargs):
+                ret = func(self, *args, **kwargs)
+                if ret is not None and log:
+                    logger.log(level=level, msg=ret)
+                return ret
+
+            return wrapper
+
+        for key, value in cls.__dict__.items():
+            if not key.startswith('_') and isinstance(value, Callable):
+                setattr(cls, key, log_return(value))
+
+        return cls
+
+    return decorator
