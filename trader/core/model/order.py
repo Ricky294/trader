@@ -1,78 +1,25 @@
 from __future__ import annotations
 
-from trader.core.enumerate import OrderSide, OrderType, TimeInForce, TimeFormat, SideFormat
+from trader.core.const.order_type import MARKET
+from trader.core.enumerate import OrderSide, OrderType, TimeInForce
 
 from trader.core.util.common import round_down
-from trader.core.util.trade import opposite_side, side_to_buy_sell, side_to_int, format_side
-from trader.config import MONEY_PRECISION
+from trader.core.util.trade import opposite_side, side_to_buy_sell, side_to_int
+from trader.data.model import Model
 from trader.data.typing import Side
 
 
-class Order:
-
-    __slots__ = (
-        'order_id', 'status', 'symbol', 'type', 'side',
-        'money', 'quantity', 'price', 'stop_price', 'close_position',
-        'time_in_force', 'reduce_only', 'activation_price', 'trailing_rate',
-    )
-
-    def __str__(self):
-        return 'Order (' + ', '.join([
-            f'{attr}: {getattr(self, attr)}'
-            for attr in self.__slots__
-            if getattr(self, attr) is not None
-        ]) + ')'
-
-        return (
-            f'Order (id: {self.order_id}'
-            f', status: {self.status}'
-            f', symbol: {self.symbol}'
-            f', type: {self.type}'
-            f', side: {side_to_buy_sell(self.side)}'
-            f', money: {self.money:.{MONEY_PRECISION}f}',
-            f', quantity: {self.quantity}',
-            f', price: {self.price}',
-            f', stop price: {self.stop_price}',
-            f', close position: {self.close_position}',
-            f', time in force: {self.time_in_force}',
-            f', reduce only: {self.reduce_only}',
-            f', activation price: {self.activation_price}',
-            f', trailing rate: {self.trailing_rate})'
-        )
-
-    def to_list(self, time_format: TimeFormat, side_format: SideFormat):
-        return [
-            self.order_id, self.status, self.symbol, self.type, format_side(self.side, side_format),
-            self.money, self.quantity, self.price, self.stop_price, self.close_position,
-            self.time_in_force, self.reduce_only, self.activation_price, self.trailing_rate
-        ]
-
-    def to_dict(self, time_format: TimeFormat, side_format: SideFormat):
-        return {
-            'id': self.order_id,
-            'status': self.status,
-            'symbol': self.symbol,
-            'type': self.type,
-            'side': format_side(self.side, side_format),
-            'money': self.money,
-            'quantity': self.quantity,
-            'price': self.price,
-            'stop_price': self.stop_price,
-            'close_position': self.close_position,
-            'time_in_force': self.time_in_force,
-            'reduce_only': self.reduce_only,
-            'activation_price': self.activation_price,
-            'trailing_rate': self.trailing_rate,
-        }
+class Order(Model):
 
     def __init__(
             self,
             symbol: str,
             type: str | OrderType,
             side: Side,
+            id=None,
+            time: float | int = None,
             quantity: float = None,
-            money: float = None,
-            order_id: int = None,
+            amount: float = None,
             status: str = None,
             price: float = None,
             stop_price: float = None,
@@ -82,10 +29,11 @@ class Order:
             activation_price: float = None,
             trailing_rate: float = None,
     ):
+        super(Order, self).__init__(id, time)
         self.symbol = symbol
         self.side = side_to_int(side)
         self.type = str(type)
-        self.money = money
+        self.amount = amount
         self.quantity = quantity
         self.price = price
         self.stop_price = stop_price
@@ -94,7 +42,6 @@ class Order:
         self.close_position = close_position
         self.time_in_force = time_in_force
         self.reduce_only = reduce_only
-        self.order_id = order_id
         self.status = status
 
     @property
@@ -107,14 +54,14 @@ class Order:
 
         :return: bool
         """
-        return 'MARKET' in self.type.upper()
+        return MARKET in self.type.upper()
 
     def opposite_side(self):
         return opposite_side(self.side)
 
     def to_binance_order(self, quantity: float, price_precision: int, quantity_precision: int):
         order = dict(symbol=self.symbol, type=str(self.type).upper(), side=side_to_buy_sell(self.side))
-        if self.money is not None:
+        if self.amount is not None:
             order['quantity'] = round_down(quantity, quantity_precision)
         if self.price is not None:
             order['price'] = round_down(self.price, price_precision)
@@ -138,12 +85,12 @@ class Order:
 
         if order_type == OrderType.LIMIT:
             return LimitOrder(
-                order_id=data['orderId'],
+                id=data['orderId'],
                 status=data['status'],
                 symbol=data['symbol'],
                 side=data['side'],
                 price=float(data['price']),
-                money=float(data['origQty']) * float(data['price']),
+                amount=float(data['origQty']) * float(data['price']),
                 quantity=float(data['origQty']),
                 time_in_force=data['timeInForce'],
             )
@@ -174,7 +121,7 @@ class Order:
     def market(
             symbol: str,
             side: OrderSide | str | int,
-            money: float,
+            amount: float,
             quantity: float,
             price: float,
             reduce_only=False,
@@ -184,11 +131,11 @@ class Order:
         return MarketOrder(
             symbol=symbol,
             side=side,
-            money=money,
+            amount=amount,
             quantity=quantity,
             price=price,
             reduce_only=reduce_only,
-            order_id=order_id,
+            id=order_id,
             status=status
         )
 
@@ -196,9 +143,9 @@ class Order:
     def limit(
             symbol: str,
             side: OrderSide | str | int,
-            money: float,
-            quantity: float,
+            amount: float,
             price: float,
+            quantity: float,
             time_in_force: TimeInForce | str = 'GTC',
             reduce_only=False,
             order_id=None,
@@ -207,12 +154,12 @@ class Order:
         return LimitOrder(
             symbol=symbol,
             side=side,
-            money=money,
-            quantity=quantity,
+            amount=amount,
             price=price,
+            quantity=quantity,
             time_in_force=time_in_force,
             reduce_only=reduce_only,
-            order_id=order_id,
+            id=order_id,
             status=status
         )
 
@@ -230,7 +177,7 @@ class Order:
             side=side,
             price=price,
             stop_price=stop_price,
-            order_id=order_id,
+            id=order_id,
             status=status
         )
 
@@ -248,7 +195,7 @@ class Order:
             side=side,
             price=price,
             stop_price=stop_price,
-            order_id=order_id,
+            id=order_id,
             status=status
         )
 
@@ -264,7 +211,7 @@ class Order:
             symbol=symbol,
             side=side,
             stop_price=stop_price,
-            order_id=order_id,
+            id=order_id,
             status=status
         )
 
@@ -280,7 +227,7 @@ class Order:
             symbol=symbol,
             side=side,
             stop_price=stop_price,
-            order_id=order_id,
+            id=order_id,
             status=status
         )
 
@@ -290,7 +237,7 @@ class Order:
             side: OrderSide | str | int,
             trailing_rate: float,
             activation_price: float = None,
-            order_id=None,
+            id=None,
             status: str = None,
             reduce_only=True,
     ):
@@ -299,7 +246,7 @@ class Order:
             side=side,
             trailing_rate=trailing_rate,
             activation_price=activation_price,
-            order_id=order_id,
+            id=id,
             status=status,
             reduce_only=reduce_only,
         )
@@ -313,7 +260,7 @@ class TrailingStopMarketOrder(Order):
             side: OrderSide | str | int,
             trailing_rate: float,
             activation_price: float = None,
-            order_id=None,
+            id=None,
             status: str = None,
             reduce_only=True,
     ):
@@ -323,7 +270,7 @@ class TrailingStopMarketOrder(Order):
             side=side,
             trailing_rate=trailing_rate,
             activation_price=activation_price,
-            order_id=order_id,
+            id=id,
             status=status,
             reduce_only=reduce_only,
         )
@@ -335,10 +282,10 @@ class MarketOrder(Order):
             self,
             symbol: str,
             side: OrderSide | str | int,
-            money: float,
-            quantity: float,
+            amount: float,
             price: float,
-            order_id=None,
+            quantity: float,
+            id=None,
             status: str = None,
             reduce_only=False,
     ):
@@ -346,11 +293,11 @@ class MarketOrder(Order):
             symbol=symbol,
             side=side,
             type=OrderType.MARKET,
-            quantity=quantity,
+            amount=amount,
             price=price,
-            money=money,
+            quantity=quantity,
             reduce_only=reduce_only,
-            order_id=order_id,
+            id=id,
             status=status,
         )
 
@@ -361,31 +308,31 @@ class LimitOrder(Order):
             self,
             symbol: str,
             side: OrderSide | str | int,
-            money: float,
-            quantity: float,
+            amount: float,
             price: float,
-            order_id=None,
+            quantity: float,
+            id=None,
             status: str = None,
             time_in_force: str | TimeInForce = 'GTC',
             reduce_only=False,
     ):
 
         super().__init__(
-            order_id=order_id,
+            id=id,
             status=status,
             symbol=symbol,
             side=side,
-            quantity=quantity,
             type=OrderType.LIMIT,
             time_in_force=time_in_force,
-            money=money,
+            amount=amount,
             price=price,
+            quantity=quantity,
             reduce_only=reduce_only,
         )
 
     @property
     def quantity(self):
-        return self.money / self.price
+        return self.amount / self.price
 
 
 class TakeProfitMarketOrder(Order):
@@ -395,7 +342,7 @@ class TakeProfitMarketOrder(Order):
             symbol: str,
             side: OrderSide | str | int,
             stop_price: float,
-            order_id=None,
+            id=None,
             status: str = None,
     ):
         super().__init__(
@@ -403,7 +350,7 @@ class TakeProfitMarketOrder(Order):
             type=OrderType.TAKE_PROFIT_MARKET,
             side=side,
             close_position=True,
-            order_id=order_id,
+            id=id,
             status=status
         )
         self.stop_price = stop_price
@@ -417,7 +364,7 @@ class TakeProfitLimitOrder(Order):
             side: OrderSide | str | int,
             price: float,
             stop_price: float,
-            order_id=None,
+            id=None,
             status: str = None,
     ):
         super().__init__(
@@ -426,7 +373,7 @@ class TakeProfitLimitOrder(Order):
             type=OrderType.TAKE_PROFIT_LIMIT,
             stop_price=stop_price,
             price=price,
-            order_id=order_id,
+            id=id,
             status=status
         )
 
@@ -438,7 +385,7 @@ class StopMarketOrder(Order):
             symbol: str,
             side: OrderSide | str | int,
             stop_price: float,
-            order_id=None,
+            id=None,
             status: str = None,
     ):
         super().__init__(
@@ -447,7 +394,7 @@ class StopMarketOrder(Order):
             side=side,
             stop_price=stop_price,
             close_position=True,
-            order_id=order_id,
+            id=id,
             status=status
         )
 
@@ -460,7 +407,7 @@ class StopLimitOrder(Order):
             side: OrderSide | str | int,
             price: float,
             stop_price: float,
-            order_id=None,
+            id=None,
             status: str = None,
     ):
         super().__init__(
@@ -469,6 +416,6 @@ class StopLimitOrder(Order):
             type=OrderType.STOP_LIMIT,
             price=price,
             stop_price=stop_price,
-            order_id=order_id,
+            id=id,
             status=status
         )

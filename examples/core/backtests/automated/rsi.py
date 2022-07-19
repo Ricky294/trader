@@ -1,11 +1,11 @@
 from trader.data.binance import get_store_candles
 from trader.data.database import HDF5CandleStorage
 
-from trader.backtest import BacktestFuturesTrader
-from trader.backtest.model import BacktestBalance
+from trader.backtest import BacktestFuturesBroker
+from trader.core.model import Balance
 from trader.core.enumerate import OrderSide
 from trader.core.indicator import RSIIndicator
-from trader.core.strategy.auto_indicator import AutoIndicatorStrategy
+from trader.core.strategy.indicator import IndicatorStrategy
 from trader.data.model import Candles
 
 from trader.ui.enumerate import Candlestick, Volume
@@ -41,9 +41,9 @@ if __name__ == "__main__":
         storage_type=HDF5CandleStorage,
     )
 
-    strategy = AutoIndicatorStrategy(
-        trader=BacktestFuturesTrader(
-            balance=BacktestBalance(asset=base_currency, free=start_cash),
+    strategy = IndicatorStrategy(
+        broker=BacktestFuturesBroker(
+            balance=Balance(asset=base_currency, free=start_cash),
             maker_fee_rate=0.0002,
             taker_fee_rate=0.0004,
         ),

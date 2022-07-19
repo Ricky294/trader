@@ -288,31 +288,53 @@ def liquidation_price(
     return entry_price * quantity * leverage / balance
 
 
-def calculate_profit(side: int | str | OrderSide, entry_price: float, exit_price: float, quantity: float, leverage: int):
+def calculate_profit(side: int | str | OrderSide, entry_price: float, current_price: float, quantity: float, leverage: int):
     """
     Calculates position profit.
 
     :examples:
-    >>> calculate_profit(side=LONG, entry_price=100, exit_price=200, quantity=.5, leverage=1)
+    >>> calculate_profit(side=LONG, entry_price=100, current_price=200, quantity=.5, leverage=1)
     50.0
 
-    >>> calculate_profit(side=SHORT, entry_price=100, exit_price=200, quantity=.5, leverage=1)
+    >>> calculate_profit(side=SHORT, entry_price=100, current_price=200, quantity=.5, leverage=1)
     -50.0
 
-    >>> calculate_profit(side=LONG, entry_price=100, exit_price=200, quantity=1, leverage=2)
+    >>> calculate_profit(side=LONG, entry_price=100, current_price=200, quantity=1, leverage=2)
     200
     """
 
-    price_change = exit_price - entry_price if side_to_int(side) == LONG else entry_price - exit_price
+    price_change = current_price - entry_price if side_to_int(side) == LONG else entry_price - current_price
 
     return price_change * quantity * leverage
 
 
+def calculate_fee(quantity: float, price: float, fee_rate: float, perc=False):
+    """
+    Fee calculation formula:
+        amount * price * fee_rate
+
+    :param quantity: Traded amount of asset.
+    :param price: Asset price.
+    :param fee_rate: Applied fee rate (percentage / 100).
+    :param perc: Set it to True if fee_rate is in percentage.
+    :return: fee
+
+    >>> calculate_fee(quantity=1, price=10104, fee_rate=0.0004)
+    4.0416
+
+    >>> calculate_fee(quantity=1, price=10104, fee_rate=0.04, perc=True)
+    4.0416
+    """
+    if perc:
+        fee_rate = fee_rate / 100
+
+    return quantity * price * fee_rate
+
+
 def create_orders(
         symbol: str,
-        money: float,
+        amount: float,
         side: int | OrderSide,
-        current_price: float,
         order_price: float = None,
         order_profit_price: float = None,
         order_stop_price: float = None,
@@ -328,12 +350,11 @@ def create_orders(
         ):
             raise ValueError('Invalid take profit and/or stop loss price.')
 
-    quantity = calculate_quantity(amount=money, price=current_price)
-
     if order_price:
-        entry_order = Order.limit(symbol=symbol, side=side, money=money, price=order_price, quantity=quantity)
+        quantity = calculate_quantity(amount=amount, price=order_price)
+        entry_order = Order.limit(symbol=symbol, side=side, amount=amount, price=order_price, quantity=quantity)
     else:
-        entry_order = Order.market(symbol=symbol, side=side, money=money, price=current_price, quantity=quantity)
+        entry_order = Order.market(symbol=symbol, side=side, amount=amount, price=None, quantity=None)
 
     other_side = opposite_side(side)
     take_profit_order = stop_order = trailing_stop_order = None

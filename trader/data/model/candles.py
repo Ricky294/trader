@@ -146,7 +146,7 @@ class Candles(ABCCandles):
 
     @property
     def patterns(self):
-        self.__ohlc_not_none_check()
+        self._ohlc_not_none_check()
         from trader.data.model import TALibCandlePatterns
 
         return TALibCandlePatterns(self.open_prices, self.high_prices, self.low_prices, self.close_prices)
@@ -220,7 +220,7 @@ class Candles(ABCCandles):
         """
         return (self.high_prices + self.low_prices + self.close_prices * 2) / 4
 
-    def __ohlc_not_none_check(self) -> None:
+    def _ohlc_not_none_check(self) -> None:
         if any(val is None for val in (self.open_prices, self.high_prices, self.low_prices, self.close_prices)):
             raise ValueError("Open, high, low or close prices are missing.")
 
@@ -276,7 +276,7 @@ class Candles(ABCCandles):
         return candles
 
     def blend(self, period=2) -> Candles:
-        self.__ohlc_not_none_check()
+        self._ohlc_not_none_check()
 
         o, h, l, c = blend_ohlc(
             open=self.open_prices,
@@ -344,9 +344,9 @@ class Candles(ABCCandles):
             - open_time >= start
             - and open time <= end
 
-        :param start: Keep candles after this time.
-        :param end: Keep candles before this time.
-        :return: new Candles object with reduced candles
+        :param start: Filters out candles before this time.
+        :param end: Filters out candles after this time.
+        :return: new Candles object between start and end timeframe.
         """
 
         if isinstance(start, datetime):

@@ -1,3 +1,3 @@
 # nopycln: file
 
-from .futures_trader import FuturesTrader
+from .futures_broker import FuturesBroker

@@ -39,22 +39,22 @@ def test_reduce_money_with_fee():
 
 
 def test_calculate_money_fee():
-    money = 100
+    amount = 100
 
     # fee: 0%
-    assert 0 == calculate_money_fee(money=money, fee_rate=.0, leverage=1)
+    assert 0 == calculate_money_fee(amount=amount, fee_rate=.0, leverage=1)
 
     # fee: 1%, leverage: 1x
-    assert 1 == calculate_money_fee(money=money, fee_rate=.01, leverage=1)
+    assert 1 == calculate_money_fee(amount=amount, fee_rate=.01, leverage=1)
 
     # fee: 1%, leverage: 2x
-    assert 2 == calculate_money_fee(money=money, fee_rate=.01, leverage=2)
+    assert 2 == calculate_money_fee(amount=amount, fee_rate=.01, leverage=2)
 
     # fee 0.1%, leverage: 10x
-    assert 1 == calculate_money_fee(money=money, fee_rate=.001, leverage=10)
+    assert 1 == calculate_money_fee(amount=amount, fee_rate=.001, leverage=10)
 
     # fee: 1%, leverage: 10x
-    assert 10 == calculate_money_fee(money=money, fee_rate=.01, leverage=10)
+    assert 10 == calculate_money_fee(amount=amount, fee_rate=.01, leverage=10)
 
 
 def test_calculate_quantity_fee():

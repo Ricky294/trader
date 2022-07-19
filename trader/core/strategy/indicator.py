@@ -8,13 +8,13 @@ from trader.core.const.trade_actions import SELL, BUY
 from trader.core.enumerate import OrderSide, Mode
 from trader.core.exception import TraderError
 from trader.core.indicator import Indicator
-from trader.core.interface import FuturesTrader
+from trader.core.interface import FuturesBroker
 
 
-class AutoIndicatorStrategy(Strategy):
+class IndicatorStrategy(Strategy):
 
     @staticmethod
-    def __cached_results(functions: Iterable[Callable]):
+    def _cached_results(functions: Iterable[Callable]):
         results = tuple(fun() for fun in functions)
 
         def wrapper(i):
@@ -24,19 +24,19 @@ class AutoIndicatorStrategy(Strategy):
         return wrapper
 
     @staticmethod
-    def __results(functions: Iterable[Callable]):
+    def _results(functions: Iterable[Callable]):
         def wrapper(i):
             result_i = tuple(bool(fun()[i]) for fun in functions)
             return all(result_i)
         return wrapper
 
-    def __update_indicators(self, candles: Candles):
+    def _update_indicators(self, candles: Candles):
         for ind in self.indicators:
             ind(candles)
 
     def __init__(
             self,
-            trader: FuturesTrader,
+            broker: FuturesBroker,
             candles: Candles,
             trade_ratio: float,
             leverage: int,
@@ -55,7 +55,7 @@ class AutoIndicatorStrategy(Strategy):
         Creates an automated trading strategy. Enters and exits positions based on the condition callbacks.
         Use price callbacks to define entry/exit and stop loss/take profit prices on position entry.
 
-        :param trader: Trader object.
+        :param broker: Trader object.
         :param candles: Candle data.
         :param trade_ratio: Defines the position size per trade (between 0 and 1).
         :param leverage: Sets leverage (positive integer).
@@ -74,19 +74,17 @@ class AutoIndicatorStrategy(Strategy):
         Note: Exit conditions, take profit and stop loss price logic are optional, but you should define either
         the exit conditions or the take profit/stop loss logics in order to exit positions.
         """
-
         if trade_ratio <= 0 or trade_ratio >= 1:
             raise TraderError(f"trade_ratio must be between 0 and 1")
 
-        super(AutoIndicatorStrategy, self).__init__(trader=trader, candles=candles)
+        super(IndicatorStrategy, self).__init__(broker=broker, candles=candles, asset=asset)
 
         self.trade_ratio = trade_ratio
         self.leverage = leverage
-        self.asset = asset
         self.indicators = indicators
 
-        wrapper = self.__cached_results if self.mode == Mode.BACKTEST else self.__results
-        self.__update_indicators(candles)
+        wrapper = self._cached_results if self.mode == Mode.BACKTEST else self._results
+        self._update_indicators(candles)
 
         self.entry_buy_conditions = wrapper(entry_long_conditions)
         self.entry_sell_conditions = wrapper(entry_short_conditions)
@@ -98,42 +96,40 @@ class AutoIndicatorStrategy(Strategy):
         self.profit_price = profit_price
         self.stop_price = stop_price
 
-    def __enter_position(self, side: OrderSide):
-        price = self.entry_price(self.candles, side)
-        tp_price = self.profit_price(self.candles, side)
-        sl_price = self.stop_price(self.candles, side)
-        self.create_position(
-            candles=self.candles,
-            money=self.get_balance(self.asset).free * self.trade_ratio,
-            leverage=self.leverage,
-            side=side,
-            price=price,
-            profit_price=tp_price,
-            stop_price=sl_price,
-        )
-
-    def __exit_position(self, position: Position):
-        price = self.exit_price(self.candles, position)
-
-        self.close_position(
-            candles=self.candles,
-            price=price,
-        )
-
     def __call__(self, candles: Candles):
+
+        def enter_position(side: OrderSide):
+            price = self.entry_price(candles, side)
+            tp_price = self.profit_price(candles, side)
+            sl_price = self.stop_price(candles, side)
+            self.broker.enter_position(
+                symbol=candles.symbol,
+                amount=self.broker.get_balance(self.asset).free * self.trade_ratio,
+                asset=self.asset,
+                leverage=self.leverage,
+                side=side,
+                price=price,
+                profit_price=tp_price,
+                stop_price=sl_price,
+            )
+
+        def exit_position():
+            price = self.exit_price(candles, position)
+            self.broker.close_position(price=price)
+
         if self.mode == Mode.LIVE:
-            self.__update_indicators(candles)
+            self._update_indicators(candles)
 
         last_index = len(candles) - 1
-        position = self.get_position(self.candles.symbol)
+        position = self.broker.get_position(candles.symbol)
 
         if position is None:
             if self.entry_buy_conditions(last_index):
-                self.__enter_position(OrderSide.BUY)
+                enter_position(OrderSide.BUY)
             elif self.entry_sell_conditions(last_index):
-                self.__enter_position(OrderSide.SELL)
+                enter_position(OrderSide.SELL)
         else:
             if position.side == SELL and self.exit_buy_conditions(last_index):
-                self.__exit_position(position)
+                exit_position()
             elif position.side == BUY and self.exit_sell_conditions(last_index):
-                self.__exit_position(position)
+                exit_position()

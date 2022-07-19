@@ -1,23 +1,13 @@
 import pandas as pd
 
 from trader.core.exception import BalanceError
+from trader.data.model import Model
 
 
-class Balance:
+class Balance(Model):
 
-    __slots__ = 'time', 'free', 'asset'
-
-    def __init__(self, time: int, free: float, asset: str):
-        """
-        Creates a Balance object.
-
-        :param free: Available and free to use amount.
-        :param asset: Name of the asset/money/currency etc.
-        """
-        if float(free) < 0:
-            raise BalanceError(f'{asset!r} balance must be greater than 0.')
-
-        self.time = int(time)
+    def __init__(self, time: int | float, free: float, asset: str, id=None):
+        super().__init__(id, time)
         self.free = float(free)
         self.asset = asset
 
@@ -25,54 +15,16 @@ class Balance:
     def pd_time(self):
         return pd.to_datetime(self.time, unit='s')
 
-    def __str__(self):
-        return f'{self.pd_time} - {self.free} {self.asset}'
-
-    def __repr__(self):
-        return f'{self.pd_time} - {self.free!r} {self.asset!r}'
-
-    def __asset_check(self, other):
+    def _asset_check(self, other):
         if other.asset != self.asset:
             raise BalanceError(
                 f'Unable to operate on different assets: '
                 f'self ({self.asset!r}) != other ({other.asset!r})'
             )
 
-    def __type_check(self, other):
+    def _type_check(self, other):
         if not isinstance(other, Balance):
             raise BalanceError(f'Type of "other" is: {type(other)}, not Balance.')
-
-    def __eq__(self, other):
-        """
-        True if `self` has exactly the same values as `other`, and `other` is instance of Balance.
-
-        :example:
-        >>> Balance(100, 'USD') == Balance(100, 'USD')
-        True
-
-        >>> Balance(200, 'USD') == Balance(100, 'USD')
-        False
-
-        >>> type('Balance2', (), {'free': 100, 'asset': 'USD'})() == Balance(100, 'USD')
-        False
-        """
-        return isinstance(other, Balance) and self.asset == other.asset and self.free == other.free
-
-    def __ne__(self, other):
-        """
-        True if `self` is has different values than `other`.
-
-        :example:
-        >>> Balance(100, 'USD') != Balance(100, 'USD')
-        False
-
-        >>> Balance(200, 'USD') != Balance(100, 'USD')
-        True
-
-        >>> type('Balance2', (), {'free': 100, 'asset': 'USD'})() != Balance(100, 'USD')
-        True
-        """
-        return not self.__eq__(other)
 
     def __gt__(self, other):
         """
@@ -96,8 +48,8 @@ class Balance:
         ...
         trader.core.exception.BalanceError: Unable to operate on different assets: self ('XYZ') != other ('USD')
         """
-        self.__type_check(other)
-        self.__asset_check(other)
+        self._type_check(other)
+        self._asset_check(other)
 
         return self.free > other.free
 
@@ -123,8 +75,8 @@ class Balance:
         ...
         trader.core.exception.BalanceError: Unable to operate on different assets: self ('XYZ') != other ('USD')
         """
-        self.__type_check(other)
-        self.__asset_check(other)
+        self._type_check(other)
+        self._asset_check(other)
 
         return self.free >= other.free
 
@@ -150,8 +102,8 @@ class Balance:
         ...
         trader.core.exception.BalanceError: Unable to operate on different assets: self ('XYZ') != other ('USD')
         """
-        self.__type_check(other)
-        self.__asset_check(other)
+        self._type_check(other)
+        self._asset_check(other)
 
         return self.free < other.free
 
@@ -177,7 +129,7 @@ class Balance:
         ...
         trader.core.exception.BalanceError: Unable to operate on different assets: self ('XYZ') != other ('USD')
         """
-        self.__type_check(other)
-        self.__asset_check(other)
+        self._type_check(other)
+        self._asset_check(other)
 
         return self.free <= other.free

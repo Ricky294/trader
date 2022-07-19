@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from binance.client import Client
 
+from trader.core.const.order_type import MARKET, LIMIT
 from trader.core.exception import PositionError
 from trader.core.const.trade_actions import LONG, SHORT
 from trader.core.enumerate import TimeInForce
@@ -26,7 +27,7 @@ class BinancePosition(Position):
             entry_fee=.0,
             entry_time=data['updateTime'],
             entry_price=float(data['entryPrice']),
-            money=float(data['positionInitialMargin']),
+            amount=float(data['positionInitialMargin']),
             quantity=quantity,
             side=LONG if quantity > .0 else SHORT,
             leverage=int(data['leverage']),
@@ -86,7 +87,7 @@ def close_position_limit(
 
     client.futures_create_order(
         symbol=position.symbol,
-        type='LIMIT',
+        type=LIMIT,
         side=side,
         quantity=abs(position.quantity),
         price=price,
@@ -102,7 +103,7 @@ def close_position_market(
     side = side_to_buy_sell(opposite_side(position.side))
     client.futures_create_order(
         symbol=position.symbol,
-        type='MARKET',
+        type=MARKET,
         side=side,
         quantity=abs(position.quantity),
         reduceOnly='true',

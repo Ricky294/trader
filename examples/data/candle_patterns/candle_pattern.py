@@ -14,10 +14,10 @@ class CandlestickPatternPlot:
         self.symbol = symbol
         self.interval = interval
         self.market = market
-        self.__get_candle_data()
-        self.__add_candlestick_chart()
+        self._get_candle_data()
+        self._add_candlestick_chart()
 
-    def __get_candle_data(self):
+    def _get_candle_data(self):
         self.candles = get_store_candles(
             symbol=self.symbol,
             interval=self.interval,
@@ -25,7 +25,7 @@ class CandlestickPatternPlot:
             storage_type=HDF5CandleStorage,
         )
 
-    def __add_candlestick_chart(self):
+    def _add_candlestick_chart(self):
         self.fig = go.Figure()
 
         self.fig.add_trace(
