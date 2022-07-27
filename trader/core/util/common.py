@@ -11,6 +11,24 @@ from typing import Callable, Iterable
 import yaml
 
 
+def is_iterable(arg):
+    """
+    Returns True if arg is iterable but not string.
+
+    :example:
+    >>> is_iterable('xyz')
+    False
+
+    >>> is_iterable([1, 2, 3])
+    True
+
+    >>> is_iterable((1, 2, 3, 4))
+    True
+    """
+
+    return isinstance(arg, Iterable) and not isinstance(arg, str)
+
+
 def singleton(callable_obj: Callable, /):
     """
     Decorator function.
@@ -49,7 +67,7 @@ def read_config(path: str) -> dict:
         return read_json(path)
 
 
-def round_down(number: float | int | None, precision: int):
+def round_down(number: float | None, precision: int):
     """
     Rounds down the `number` by a number of `precision` points (truncates value).
 
@@ -79,7 +97,7 @@ def all_empty(values: Iterable):
     Returns True if all `values` are 0, None or empty string.
 
     :examples:
-    >>> all_empty(['0.0', '0', .0, None, ''])
+    >>> all_empty(['0.0', '0', .0, None, '', 'None'])
     True
 
     >>> all_empty(['5', 'xy', '', None])
@@ -92,7 +110,7 @@ def all_empty(values: Iterable):
 
     for value in values:
         try:
-            if value in ['', None]:
+            if value in ['', None, 'None']:
                 continue
             elif float(value) != .0:
                 return False

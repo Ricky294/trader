@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from trader.core.enumerate import OrderSide, TimeInForce
+from trader.core.super_enum import OrderSide, TimeInForce
 from trader.core.model import Balance, Position, MarketOrder, LimitOrder, Order
 
 
@@ -23,7 +23,7 @@ class FuturesBroker(ABC):
             symbol: str,
             amount: float,
             asset: str,
-            side: int | str | OrderSide,
+            side: OrderSide,
             leverage: int,
             price: float = None,
             profit_price: float = None,
@@ -48,7 +48,7 @@ class FuturesBroker(ABC):
     def close_position(
             self,
             price: float = None,
-            time_in_force: str | TimeInForce = "GTC"
+            time_in_force=TimeInForce.GTC
     ):
         if price:
             return self.close_position_limit(price=price, time_in_force=time_in_force)
@@ -58,7 +58,7 @@ class FuturesBroker(ABC):
     def close_position_market(self) -> MarketOrder | None: ...
 
     @abstractmethod
-    def close_position_limit(self, price: float, time_in_force: str | TimeInForce = "GTC") -> LimitOrder: ...
+    def close_position_limit(self, price: float, time_in_force=TimeInForce.GTC) -> LimitOrder: ...
 
     @abstractmethod
     def get_balance(self, asset: str) -> Balance | None: ...

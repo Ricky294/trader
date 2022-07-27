@@ -1,7 +1,7 @@
-from enum import Enum
+from trader.data.super_enum import SuperEnum
 
 
-class Graph(Enum):
+class Graph(SuperEnum):
     CAPITAL = 0
     PROFIT = 1
     MAIN = 2

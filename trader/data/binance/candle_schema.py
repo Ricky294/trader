@@ -1,0 +1,35 @@
+from typing import Final
+
+import trader.data.candle_schema as core_schema
+
+CLOSE_TIME: Final = 'CLOSE_TIME'
+QUOTE_ASSET_VOLUME: Final = 'QUOTE_ASSET_VOLUME'
+NUMBER_OF_TRADES: Final = 'NUMBER_OF_TRADES'
+TAKER_BUY_BASE_ASSET_VOLUME: Final = 'TAKER_BUY_BASE_ASSET_VOLUME'
+TAKER_BUY_QUOTE_ASSET_VOLUME: Final = 'TAKER_BUY_QUOTE_ASSET_VOLUME'
+
+BINANCE_CANDLE_SCHEMA: Final = [
+    core_schema.OPEN_TIME,
+    core_schema.OPEN_PRICE,
+    core_schema.HIGH_PRICE,
+    core_schema.LOW_PRICE,
+    core_schema.CLOSE_PRICE,
+    core_schema.VOLUME,
+    CLOSE_TIME,
+    QUOTE_ASSET_VOLUME,
+    NUMBER_OF_TRADES,
+    TAKER_BUY_BASE_ASSET_VOLUME,
+    TAKER_BUY_QUOTE_ASSET_VOLUME
+]
+
+
+BINANCE_CANDLE_SCHEMA_TO_INDEX: Final = dict(
+    core_schema.TOHLCV_LONG_TO_INDEX,
+    **{
+        CLOSE_TIME: 6,
+        QUOTE_ASSET_VOLUME: 7,
+        NUMBER_OF_TRADES: 8,
+        TAKER_BUY_BASE_ASSET_VOLUME: 9,
+        TAKER_BUY_QUOTE_ASSET_VOLUME: 10,
+    }
+)

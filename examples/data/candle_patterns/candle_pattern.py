@@ -3,15 +3,16 @@ from __future__ import annotations
 import numpy as np
 import plotly.graph_objects as go
 
+from trader.data.super_enum import Market
 from trader.data.binance import get_store_candles
-from trader.data.core import HDF5CandleStorage
-from trader.data.enumerate import Market
+from trader.data.database import HDF5CandleStorage
 
 
 class CandlestickPatternPlot:
 
-    def __init__(self, symbol: str, interval: str, market: str | Market):
-        self.symbol = symbol
+    def __init__(self, base: str, quote: str, interval: str, market: Market):
+        self.base_currency = base
+        self.quote_currency = quote
         self.interval = interval
         self.market = market
         self._get_candle_data()
@@ -19,7 +20,8 @@ class CandlestickPatternPlot:
 
     def _get_candle_data(self):
         self.candles = get_store_candles(
-            symbol=self.symbol,
+            base_currency=self.base_currency,
+            quote_currency=self.quote_currency,
             interval=self.interval,
             market=self.market,
             storage_type=HDF5CandleStorage,
@@ -88,9 +90,10 @@ class CandlestickPatternPlot:
 
 
 plotter = CandlestickPatternPlot(
-    symbol="BTCUSDT",
+    base="BTC",
+    quote="USDT",
     interval="4h",
-    market="SPOT",
+    market=Market.SPOT,
 )
 
 plotter.add_patterns("three line strike", "three_black_crows", "evening_star", "abandoned_baby", "engulfing")

@@ -1,5 +1,4 @@
 import copy
-from uuid import uuid4
 import time
 
 import numpy as np
@@ -8,14 +7,13 @@ import pandas as pd
 
 class Model:
 
-    def __init__(self, _id: any, create_time: int | float | None):
+    def __init__(self, create_time: float | None):
         """
         Creates a value object.
 
         :param _id: Unique id for the object. Auto generated if not defined (Optional).
         :param create_time: Creation time in seconds. Gets current timestamp if not defined (Optional).
         """
-        self.id = str(uuid4()) if _id is None else id
         self.time = time.time() if create_time is None else create_time
 
     def copy_init(self, **kwargs):
@@ -54,13 +52,11 @@ class Model:
         )
 
     def __eq__(self, other):
-        return isinstance(other, type(self)) and self.id == other.id
+        return isinstance(other, type(self)) \
+               and all([val1 == val2 for val1, val2 in zip(self.__dict__, other.__dict__)])
 
     def __ne__(self, other):
         return not self.__eq__(other)
-
-    def __hash__(self):
-        return hash(self.id)
 
     def to_dict(self) -> dict[str, any]:
         return self.__dict__

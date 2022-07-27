@@ -5,7 +5,7 @@ from typing import Callable, TypeVar
 from trader.data.model import Candles
 
 from trader.core.model import Position, Balance, Order
-from trader.core.enumerate import OrderSide
+from trader.core.super_enum import OrderSide
 from trader.core.exception import TraderError
 from trader.core.interface import FuturesBroker
 
@@ -63,7 +63,7 @@ class CallbackStrategy(ManagedPositionStrategy):
         self.take_profit_callback = take_profit_callback
         self.stop_loss_callback = stop_loss_callback
 
-    def in_position(self, candles: Candles, balance: Balance, open_order: list[Order], position: Position):
+    def in_position(self, candles: Candles, balance: Balance, open_order: list[Order], position: Position, *args, **kwargs):
         ret = self.exit_position_callback(candles, balance, open_order, position)
 
         if ret is True:
@@ -71,7 +71,7 @@ class CallbackStrategy(ManagedPositionStrategy):
         elif ret is float:
             self.broker.close_position(ret)
 
-    def not_in_position(self, candles: Candles, balance: Balance, open_order: list[Order]):
+    def not_in_position(self, candles: Candles, balance: Balance, open_order: list[Order], *args, **kwargs):
         ret = self.entry_callback(candles, balance, open_order)
         if ret:
             if isinstance(ret, tuple):
@@ -84,7 +84,7 @@ class CallbackStrategy(ManagedPositionStrategy):
             sl = self.stop_loss_callback(candles, balance, open_order, side)
             self.broker.enter_position(
                 symbol=candles.symbol,
-                amount=self.broker.get_balance(self.asset).free * self.trade_ratio,
+                amount=balance.available * self.trade_ratio,
                 leverage=self.leverage,
                 asset=self.asset,
                 side=side,

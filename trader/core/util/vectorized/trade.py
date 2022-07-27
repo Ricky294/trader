@@ -3,10 +3,10 @@ from __future__ import annotations
 import numpy as np
 import talib
 
-from trader.core.enumerate import MA
+from trader.core.super_enum import MA
 
 
-def talib_ma(x: np.ndarray, /, type: MA | str, period: int) -> np.ndarray:
+def talib_ma(x: np.ndarray, /, type: MA, period: int) -> np.ndarray:
     """
     Calculates moving average of `type` on `x` with lookback `period` using TA-Lib.
     """

@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
 
-from trader.data.enumerate import OHLCV
+from trader.data.candle_schema import *
 from trader.data.model import Candles
-from trader.data.schema import OPEN_TIME, VOLUME, CLOSE_PRICE, LOW_PRICE, HIGH_PRICE, OPEN_PRICE
+from trader.data.super_enum import Market
 
 tohlcv_candles = np.array([
     [1.0, 10.0, 15.0, 1.0, 5.0, 8.0],
@@ -16,7 +16,7 @@ c1 = Candles(
     candles=tohlcv_candles,
     symbol='XYZ',
     interval='1h',
-    market='FUTURES',
+    market=Market.FUTURES,
     schema=(OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE, VOLUME),
 )
 
@@ -29,7 +29,7 @@ def test_create_candles():
             candles=tohlcv_candles,
             symbol='',
             interval='',
-            market='FUTURES',
+            market=Market.FUTURES,
             schema=(OPEN_TIME, OPEN_PRICE, HIGH_PRICE),
         )
 
@@ -39,15 +39,14 @@ def test_create_candles():
             candles=np.ndarray([5, 10, 15]),
             symbol='',
             interval='',
-            market='FUTURES',
+            market=Market.FUTURES,
             schema=(OPEN_TIME, OPEN_PRICE, HIGH_PRICE),
         )
 
 
 def test_filter_candle_series():
     assert np.array_equal(c1.series(OPEN_TIME), [1., 2., 3., 4.])
-    assert np.array_equal(c1.series(0), [1., 2., 3., 4.])
-    assert np.array_equal(c1.series(OHLCV.OPEN_PRICE), [10., 8., 8., 6.])
+    assert np.array_equal(c1.series(OPEN_PRICE), [10., 8., 8., 6.])
 
     assert np.array_equal(
         c1.series([OPEN_PRICE, HIGH_PRICE, LOW_PRICE]),
@@ -108,7 +107,7 @@ def test_normalize_candles():
         [6, 6, 6, 6, 6, 6]
     ])
 
-    candles = Candles(candles=data, symbol='SPY', interval='15m', market='FUTURES')
+    candles = Candles(candles=data, symbol='SPY', interval='15m', market=Market.FUTURES)
 
     norm_candles = candles.normalize(OPEN_PRICE, HIGH_PRICE)
 
@@ -130,7 +129,7 @@ def test_blend_candles():
         [6, 6, 6, 6, 6, 6]
     ])
 
-    candles = Candles(candles=data, symbol='SPY', interval='15m', market='FUTURES')
+    candles = Candles(candles=data, symbol='SPY', interval='15m', market=Market.FUTURES)
 
     blended_candles = candles.blend()
 

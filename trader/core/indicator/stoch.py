@@ -2,7 +2,7 @@ import talib
 
 from trader.data.model import Candles
 
-from trader.core.enumerate import MA
+from trader.core.super_enum import MA
 from trader.core.indicator import Indicator
 from trader.core.util.vectorized.trade import cross
 
@@ -18,9 +18,9 @@ class STOCHIndicator(Indicator):
             lower_limit=20.0,
             fast_k_period=5,
             slow_k_period=3,
-            slow_k_ma=MA.SMA,
+            slow_k_ma: MA = MA.SMA,
             slow_d_period=3,
-            slow_d_ma=MA.SMA,
+            slow_d_ma: MA = MA.SMA,
     ):
         """
         :param upper_limit: %D line above this limit -> overbought

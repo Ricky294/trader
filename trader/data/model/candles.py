@@ -7,11 +7,10 @@ import numpy as np
 import pandas as pd
 import nputils as npu
 
-from trader.data.enumerate import Market, OHLCV
+from trader.data.candle_schema import OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE, VOLUME
+from trader.data.super_enum import Market
 from trader.data.model import ABCCandles
-from trader.data.typing import Series
 from trader.data.util import blend_ohlc, to_heikin_ashi, interval_to_seconds
-from trader.data.schema import *
 
 
 class ConfigParam(Enum):
@@ -44,7 +43,7 @@ class Candles(ABCCandles):
             candles: np.ndarray,
             symbol: str,
             interval: str,
-            market: str | Market,
+            market: Market,
             meta: dict = None,
             schema=(OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE, VOLUME),
             orientation=Orientation.AUTO,
@@ -87,7 +86,7 @@ class Candles(ABCCandles):
         ...                  [5,  4, 12,  2,  6,  1],
         ...                  [6,  6,  8,  3,  7,  1]])
 
-        >>> candles1h = Candles(candles=data, symbol="XYZ", interval="1h", market="SPOT")
+        >>> candles1h = Candles(candles=data, symbol="XYZ", interval="1h", market=Market.SPOT)
         >>> candles2h = candles1h.roll_up("2h")
         >>> candles2h.candles
         array([[ 1,  4,  9,  2,  8,  5],
@@ -224,7 +223,7 @@ class Candles(ABCCandles):
         if any(val is None for val in (self.open_prices, self.high_prices, self.low_prices, self.close_prices)):
             raise ValueError("Open, high, low or close prices are missing.")
 
-    def normalize(self, *x: Series) -> Candles:
+    def normalize(self, *x: str) -> Candles:
         """
         Creates and returns a new Candles object with normalized data defined by `x`.
 
@@ -293,7 +292,7 @@ class Candles(ABCCandles):
         candles = self.copy_init(data, meta=dict(self.meta, **{"blended": True}))
         return candles
 
-    def average(self, *series: int | str | OHLCV) -> np.ndarray:
+    def average(self, *series: str) -> np.ndarray:
         """
         Counts average of multiple data series by index or name.
 
@@ -336,7 +335,7 @@ class Candles(ABCCandles):
     def lowest_opens_over_period(self, period: int):
         return npu.min_over_period(self.open_prices, period)
 
-    def between(self, start: int | float | datetime, end: int | float | datetime):
+    def between(self, start: float | datetime, end: float | datetime):
         """
         Creates a new Candles object, which only includes candles between `start` and `end` time.
 

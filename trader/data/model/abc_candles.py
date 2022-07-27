@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import copy
 from abc import abstractmethod, ABC
-from typing import Iterator, Iterable
+from typing import Iterator
 
 import numpy as np
 
+from trader.data.super_enum import Market
 from trader.data.database import HDF5CandleStorage, NPYCandleStorage, CandleStorage
-from trader.data.enumerate import Market, OHLCV
-from trader.data.typing import Series
 
 
 class CandleIterable(Iterator):
@@ -104,7 +103,7 @@ class ABCCandles(ABC):
             candles: np.ndarray,
             symbol: str,
             interval: str,
-            market: str | Market,
+            market: Market,
             meta: dict,
             schema: tuple[str, ...] | list[str],
     ):
@@ -145,7 +144,7 @@ class ABCCandles(ABC):
             candles: np.ndarray = None,
             symbol: str = None,
             interval: str = None,
-            market: str | Market = None,
+            market: Market = None,
             meta: dict = None,
             schema: tuple[str, ...] | list[str] = None,
     ):
@@ -261,10 +260,10 @@ class ABCCandles(ABC):
     def to_dict(self):
         return {schema: self.series(schema) for schema in self.schema}
 
-    def series_to_index(self, ser: Series, /):
-        return self.schema.index(str(ser)) if isinstance(ser, (str, OHLCV)) else int(ser)
+    def series_to_index(self, ser: str, /):
+        return self.schema.index(ser)
 
-    def series(self, item: Series | Iterable[Series], /) -> np.ndarray:
+    def series(self, item: str | tuple[str] | list[str], /) -> np.ndarray:
         """
         Returns 1 or 2 dimensional numpy array based on the type of `item`:
             - 1D - Series = int | str | OHLCV
@@ -274,9 +273,9 @@ class ABCCandles(ABC):
         :return: numpy array
         """
 
-        if isinstance(item, (int, str, OHLCV)):   # Series type
+        if isinstance(item, str):
             return self.candles.T[self.series_to_index(item)]
-        else:   # Iterable[Series]
+        else:
             indexes = [self.series_to_index(e) for e in item]
             candle_series = np.vstack([self.candles.T[index] for index in indexes])
             return candle_series
@@ -298,6 +297,10 @@ class ABCCandles(ABC):
             return self.copy_init(self.candles[index.start:index.stop:index.step])
 
         return self.copy_init(self.candles[index])
+
+    @property
+    def last_index(self):
+        return len(self) - 1
 
     def __len__(self):
         return len(self.candles)

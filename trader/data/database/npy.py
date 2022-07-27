@@ -3,9 +3,9 @@ from __future__ import annotations
 import numpy as np
 import nputils as npu
 
+from trader.data.super_enum import Market
 from trader.data.util import check_ndim_is_2
 from trader.data.database import CandleStorage
-from trader.data.enumerate import Market
 
 
 class NPYCandleStorage(CandleStorage):
@@ -14,8 +14,8 @@ class NPYCandleStorage(CandleStorage):
     def file_extension():
         return 'npy'
 
-    def __init__(self, dir_path: str, symbol: str, interval: str, market: str | Market):
-        super(NPYCandleStorage, self).__init__(dir_path=dir_path, symbol=symbol, interval=interval, market=market)
+    def __init__(self, dir_path: str, symbol: str, interval: str, market: Market):
+        super().__init__(dir_path=dir_path, symbol=symbol, interval=interval, market=market)
 
     def append(self, data: any):
         """

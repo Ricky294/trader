@@ -4,6 +4,7 @@ import h5py as h5
 import numpy as np
 import nputils as npu
 
+from trader.data.super_enum import Market
 from trader.data.util import check_ndim_is_2
 from trader.data.database import CandleStorage
 
@@ -21,7 +22,7 @@ class HDF5CandleStorage(CandleStorage):
             dir_path: str,
             symbol: str,
             interval: str,
-            market: str,
+            market: Market,
     ):
         super().__init__(dir_path, symbol, interval, market)
 

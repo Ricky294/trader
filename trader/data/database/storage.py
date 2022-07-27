@@ -4,7 +4,7 @@ import os.path
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from trader.data.enumerate import Market
+from trader.data.super_enum import Market
 from trader.data.log import get_data_logger
 
 
@@ -28,7 +28,7 @@ class CandleStorage(ABC):
         """Returns database file path."""
         return os.path.join(self.dir_path, self.file_name).replace("\\", "/")
 
-    def __init__(self, dir_path: str, symbol: str, interval: str, market: str | Market):
+    def __init__(self, dir_path: str, symbol: str, interval: str, market: Market):
         parent_dir = Path(dir_path)
         if not parent_dir.exists():
             parent_dir.mkdir(parents=True, exist_ok=True)

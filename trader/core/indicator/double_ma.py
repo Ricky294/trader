@@ -3,9 +3,9 @@ from __future__ import annotations
 import numpy as np
 
 from trader.data.model import Candles
-from trader.data.enumerate import OHLCV
+from trader.data.candle_schema import CLOSE_PRICE
 
-from trader.core.enumerate import MA
+from trader.core.super_enum import MA
 from trader.core.indicator import Indicator
 from trader.core.util.vectorized.trade import talib_ma, cross
 
@@ -18,11 +18,11 @@ class DoubleMAIndicator(Indicator):
     def __init__(
             self,
             fast_period: int,
-            fast_type: str | MA,
             slow_period: int,
-            slow_type: str | MA,
-            fast_line=OHLCV.CLOSE_PRICE,
-            slow_line=OHLCV.CLOSE_PRICE,
+            fast_type: MA,
+            slow_type: MA,
+            fast_line=CLOSE_PRICE,
+            slow_line=CLOSE_PRICE,
     ):
         self.fast_period = fast_period
         self.fast_type = fast_type
@@ -90,3 +90,8 @@ class DoubleMAIndicator(Indicator):
         :return: bool numpy array
         """
         return cross(self.fast_ma < self.slow_ma)
+
+
+DoubleMAIndicator(
+    fast_line=5,
+)

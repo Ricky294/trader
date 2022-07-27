@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import json
-from typing import Callable
+from typing import Callable, NoReturn
 
 import numpy as np
 import websocket
 
+from trader.data.super_enum import Market
 from trader.data.log import get_data_logger
 from trader.data.model import Candles
-from trader.data.schema import NAME_TO_SHORT_NAME
+from trader.data.candle_schema import TOHLCV_LONG_TO_SHORT
 
 BINANCE_SPOT_STREAM = 'wss://stream.binance.com:9443'
 BINANCE_FUTURES_STREAM = 'wss://fstream.binance.com'
@@ -16,22 +17,23 @@ BINANCE_FUTURES_STREAM = 'wss://fstream.binance.com'
 
 def candle_stream(
         candles: Candles,
-        on_candle_close: Callable[[Candles], any],
         on_candle: Callable[[dict], any],
+        on_candle_close: Callable[[Candles, ...], any],
+        on_candle_close_kwargs: Callable[[Candles], dict[str, any]],
         log_candles=True,
-) -> None:
+) -> NoReturn:
     """
     Creates a candle stream on binance on symbol, interval and market defined by `candles` object instance attributes.
 
-    :param candles: Candles object to append data when a candle is closed.
+    :param candles: Historical candles.
+    :param on_candle_close_kwargs: Keyword arguments for on_candle_close function.
     :param on_candle_close: Calls this with the updated `candles` after a closed candle.
     :param on_candle: Continuously called on new streaming data.
     :param log_candles: If True, new candles are continuously logged to console.
-    :return: None
+    :return: Runs while stopped or crashed.
     """
 
     def message_callback(ws, raw_data):
-        nonlocal candles
 
         data = json.loads(raw_data)
         candle_data = data["k"]
@@ -51,9 +53,9 @@ def candle_stream(
             get_data_logger().info(candle_data)
 
         if candle_data["x"]:
-            new_candle = np.array([candle_data[NAME_TO_SHORT_NAME[name]] for name in candles.schema], dtype=float)
+            new_candle = np.array([candle_data[TOHLCV_LONG_TO_SHORT[name]] for name in candles.schema], dtype=float)
             candles.concatenate(new_candle)
-            on_candle_close(candles)
+            on_candle_close(**on_candle_close_kwargs(candles))
 
         on_candle(candle_data)
 
@@ -73,9 +75,9 @@ def candle_stream(
             f"in {candles.interval} intervals on binance {candles.market} market."
         )
 
-    if str(candles.market).upper() == "FUTURES":
+    if candles.market == Market.FUTURES:
         stream = BINANCE_FUTURES_STREAM
-    elif str(candles.market).upper() == "SPOT":
+    elif candles.market == Market.SPOT:
         stream = BINANCE_SPOT_STREAM
     else:
         raise ValueError(f"Invalid value for market: {candles.market}")

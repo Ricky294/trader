@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from trader.core.enumerate import OrderSide
+from trader.core.super_enum import OrderSide
 from trader.core.exception import LiquidationError
 from trader.core.model import Position
-from trader.core.const.trade_actions import LONG
 from trader.core.util.trade import calculate_profit
 
 
@@ -12,9 +11,9 @@ class BacktestPosition(Position):
     def __init__(
             self,
             symbol: str,
-            entry_time: int,
+            entry_time: float,
             entry_price: float,
-            side: int | OrderSide,
+            side: OrderSide,
             amount: float,
             quantity: float,
             leverage: int,
@@ -42,7 +41,7 @@ class BacktestPosition(Position):
         if self.closed:
             return
 
-        possible_liquidation_price = low_price if self.side == LONG else high_price
+        possible_liquidation_price = low_price if self.side == OrderSide.LONG else high_price
 
         lowest_profit = self._calculate_profit(possible_liquidation_price)
         is_liquidated = lowest_profit < 0 and abs(lowest_profit) >= balance
@@ -56,7 +55,7 @@ class BacktestPosition(Position):
         """Updates profit based on `latest_price`."""
         self._profit = self._calculate_profit(self.exit_price if self.closed else latest_price)
 
-    def close(self, time: int, price: float):
+    def close(self, time: float, price: float):
         super(BacktestPosition, self).close(time=time, price=price)
         self.update(price)
 
@@ -67,7 +66,7 @@ class BacktestPosition(Position):
 
         :examples:
         >>> from trader.backtest.model import BacktestPosition
-        >>> from trader.core.enumerate import OrderSide
+        >>> from trader.core.super_enum import OrderSide
 
         >>> position = BacktestPosition(
         ... symbol='EXAMPLE',

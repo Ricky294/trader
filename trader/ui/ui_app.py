@@ -12,9 +12,7 @@ from trader.data.model import Candles
 
 from trader.config import PROFIT_PRECISION, BALANCE_PRECISION
 
-from trader.core.enumerate import TimeFormat
 from trader.core.model.balances import Balances
-from trader.core.util.trade import format_time
 from trader.core.util import format as fmt
 from trader.core.model import Position, Positions, Order, Orders, Balance
 from trader.core.indicator import Indicator
@@ -90,7 +88,7 @@ class UIApp:
             elif tab == 'stats_tab':
                 return html.Div(
                     [self._create_stats_table()],
-                    id='positions',
+                    id='stats',
                     style=tab_style,
                 )
             elif tab == 'equity_tab':
@@ -108,7 +106,7 @@ class UIApp:
             elif tab == 'orders_tab':
                 return html.Div(
                     [self._create_orders_table()],
-                    id='positions',
+                    id='orders',
                     style=tab_style,
                 )
 
@@ -117,9 +115,9 @@ class UIApp:
 
     def _create_stats_table(self):
         largest_loss_date = self.positions.largest_loss_date
-        largest_loss_date = format_time(largest_loss_date, TimeFormat.PANDAS) if largest_loss_date else '-'
+        largest_loss_date = pd.to_datetime(largest_loss_date, unit='s') if largest_loss_date else '-'
         largest_profit_date = self.positions.largest_profit_date
-        largest_profit_date = format_time(largest_profit_date, TimeFormat.PANDAS) if largest_profit_date else '-'
+        largest_profit_date = pd.to_datetime(largest_profit_date, unit='s') if largest_profit_date else '-'
 
         return dash_table.DataTable(
             id='stats_table',
@@ -129,7 +127,7 @@ class UIApp:
                 {'name': 'Date', 'id': 'date', 'selectable': True}
             ],
             data=[
-                {'name': 'Total trades', 'value': fmt.num(self.positions.number_of_trades)},
+                {'name': 'Total positions', 'value': fmt.num(self.positions.number_of_trades)},
                 {
                     'name': 'Wins - % Win',
                     'value': f'({fmt.num(self.positions.number_of_wins)})'
@@ -190,19 +188,19 @@ class UIApp:
         )
 
     def _create_equity_table(self):
-        formatted_equity = format_trade(self.balances)
+        formatted_equity = format_trade(self.balances, unit='s')
         equity_df = pd.DataFrame(formatted_equity)
 
         return self._create_table(equity_df, 'equity_table')
 
     def _create_positions_table(self):
-        formatted_positions = format_trade(self.positions)
+        formatted_positions = format_trade(self.positions, unit='s')
         pos_df = pd.DataFrame(formatted_positions)
 
         return self._create_table(pos_df, 'positions_table')
 
     def _create_orders_table(self):
-        formatted_orders = format_trade(self.orders)
+        formatted_orders = format_trade(self.orders, unit='s')
         ord_df = pd.DataFrame(formatted_orders)
 
         return self._create_table(ord_df, 'orders_table')

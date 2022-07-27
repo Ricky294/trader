@@ -11,6 +11,7 @@ Exceptions:
     - BalanceError -
     - LiquidationError -
 """
+from trader.data.super_enum import Market
 
 
 class TraderError(Exception):
@@ -43,7 +44,7 @@ class BrokerError(TraderError):
 
 class MarketError(TraderError):
     """"Exception for invalid trading market."""
-    def __init__(self, market: str):
+    def __init__(self, market: Market):
         super(MarketError, self).__init__(f'Invalid market value: {market}')
 
 

@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from trader.data.model import Columnar
-from trader.data.schema import SchemaError
+from trader.data.exception import SchemaError
 
 
 def test_correct():

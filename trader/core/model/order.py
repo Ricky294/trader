@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-from trader.core.const.order_type import MARKET
-from trader.core.enumerate import OrderSide, OrderType, TimeInForce
-
+from trader.core.super_enum import OrderSide, TimeInForce, OrderType
 from trader.core.util.common import round_down
-from trader.core.util.trade import opposite_side, side_to_buy_sell, side_to_int
+
 from trader.data.model import Model
-from trader.data.typing import Side
 
 
 class Order(Model):
@@ -14,25 +11,26 @@ class Order(Model):
     def __init__(
             self,
             symbol: str,
-            type: str | OrderType,
-            side: Side,
-            id=None,
-            time: float | int = None,
+            type: OrderType,
+            side: OrderSide,
+            order_id=None,
+            time: float = None,
             quantity: float = None,
             amount: float = None,
             status: str = None,
             price: float = None,
             stop_price: float = None,
             close_position=False,
-            time_in_force: str = None,
+            time_in_force: TimeInForce = None,
             reduce_only=False,
             activation_price: float = None,
             trailing_rate: float = None,
     ):
-        super(Order, self).__init__(id, time)
+        super(Order, self).__init__(time)
+        self.order_id = order_id
         self.symbol = symbol
-        self.side = side_to_int(side)
-        self.type = str(type)
+        self.side = side
+        self.type = type
         self.amount = amount
         self.quantity = quantity
         self.price = price
@@ -54,13 +52,18 @@ class Order(Model):
 
         :return: bool
         """
-        return MARKET in self.type.upper()
+        return self.type.is_taker()
 
+    @property
+    def is_maker(self) -> bool:
+        return self.type.is_maker()
+
+    @property
     def opposite_side(self):
-        return opposite_side(self.side)
+        return self.side.opposite()
 
     def to_binance_order(self, quantity: float, price_precision: int, quantity_precision: int):
-        order = dict(symbol=self.symbol, type=str(self.type).upper(), side=side_to_buy_sell(self.side))
+        order = dict(symbol=self.symbol, type=str(self.type).upper(), side=self.side.to_buy_sell())
         if self.amount is not None:
             order['quantity'] = round_down(quantity, quantity_precision)
         if self.price is not None:
@@ -68,7 +71,7 @@ class Order(Model):
         if self.stop_price is not None:
             order['stopPrice'] = round_down(self.stop_price, price_precision)
         if self.time_in_force is not None:
-            order['timeInForce'] = self.time_in_force.upper()
+            order['timeInForce'] = str(self.time_in_force)
         if self.close_position:
             order['closePosition'] = str(self.close_position).lower()
         if self.reduce_only:
@@ -80,12 +83,12 @@ class Order(Model):
         return order
 
     @staticmethod
-    def from_binance(data: dict) -> 'Order':
+    def from_binance(data: dict) -> Order:
         order_type: str = data['type']
 
         if order_type == OrderType.LIMIT:
             return LimitOrder(
-                id=data['orderId'],
+                order_id=data['orderId'],
                 status=data['status'],
                 symbol=data['symbol'],
                 side=data['side'],
@@ -112,7 +115,6 @@ class Order(Model):
                 side=data['side'],
                 activation_price=float(data['activationPrice']),
                 trailing_rate=float(data['callbackRate']),
-
             )
         else:
             raise ValueError(f'Unsupported order type: {order_type}')
@@ -120,7 +122,7 @@ class Order(Model):
     @staticmethod
     def market(
             symbol: str,
-            side: OrderSide | str | int,
+            side: OrderSide,
             amount: float,
             quantity: float,
             price: float,
@@ -135,18 +137,18 @@ class Order(Model):
             quantity=quantity,
             price=price,
             reduce_only=reduce_only,
-            id=order_id,
+            order_id=order_id,
             status=status
         )
 
     @staticmethod
     def limit(
             symbol: str,
-            side: OrderSide | str | int,
+            side: OrderSide,
             amount: float,
             price: float,
             quantity: float,
-            time_in_force: TimeInForce | str = 'GTC',
+            time_in_force=TimeInForce.GTC,
             reduce_only=False,
             order_id=None,
             status: str = None,
@@ -159,14 +161,14 @@ class Order(Model):
             quantity=quantity,
             time_in_force=time_in_force,
             reduce_only=reduce_only,
-            id=order_id,
+            order_id=order_id,
             status=status
         )
 
     @staticmethod
     def stop_limit(
             symbol: str,
-            side: OrderSide | str | int,
+            side: OrderSide,
             price: float,
             stop_price: float,
             order_id=None,
@@ -177,14 +179,14 @@ class Order(Model):
             side=side,
             price=price,
             stop_price=stop_price,
-            id=order_id,
+            order_id=order_id,
             status=status
         )
 
     @staticmethod
     def take_profit_limit(
             symbol: str,
-            side: OrderSide | str | int,
+            side: OrderSide,
             price: float,
             stop_price: float,
             order_id=None,
@@ -195,14 +197,14 @@ class Order(Model):
             side=side,
             price=price,
             stop_price=stop_price,
-            id=order_id,
+            order_id=order_id,
             status=status
         )
 
     @staticmethod
     def stop_market(
             symbol: str,
-            side: OrderSide | str | int,
+            side: OrderSide,
             stop_price: float,
             order_id=None,
             status: str = None,
@@ -211,14 +213,14 @@ class Order(Model):
             symbol=symbol,
             side=side,
             stop_price=stop_price,
-            id=order_id,
+            order_id=order_id,
             status=status
         )
 
     @staticmethod
     def take_profit_market(
             symbol: str,
-            side: OrderSide | str | int,
+            side: OrderSide,
             stop_price: float,
             order_id=None,
             status: str = None,
@@ -227,17 +229,17 @@ class Order(Model):
             symbol=symbol,
             side=side,
             stop_price=stop_price,
-            id=order_id,
+            order_id=order_id,
             status=status
         )
 
     @staticmethod
     def trailing_stop_market_order(
             symbol: str,
-            side: OrderSide | str | int,
+            side: OrderSide,
             trailing_rate: float,
             activation_price: float = None,
-            id=None,
+            order_id=None,
             status: str = None,
             reduce_only=True,
     ):
@@ -246,7 +248,7 @@ class Order(Model):
             side=side,
             trailing_rate=trailing_rate,
             activation_price=activation_price,
-            id=id,
+            order_id=order_id,
             status=status,
             reduce_only=reduce_only,
         )
@@ -257,10 +259,10 @@ class TrailingStopMarketOrder(Order):
     def __init__(
             self,
             symbol: str,
-            side: OrderSide | str | int,
+            side: OrderSide,
             trailing_rate: float,
             activation_price: float = None,
-            id=None,
+            order_id=None,
             status: str = None,
             reduce_only=True,
     ):
@@ -270,7 +272,7 @@ class TrailingStopMarketOrder(Order):
             side=side,
             trailing_rate=trailing_rate,
             activation_price=activation_price,
-            id=id,
+            order_id=order_id,
             status=status,
             reduce_only=reduce_only,
         )
@@ -281,11 +283,11 @@ class MarketOrder(Order):
     def __init__(
             self,
             symbol: str,
-            side: OrderSide | str | int,
+            side: OrderSide,
             amount: float,
             price: float,
             quantity: float,
-            id=None,
+            order_id=None,
             status: str = None,
             reduce_only=False,
     ):
@@ -297,7 +299,7 @@ class MarketOrder(Order):
             price=price,
             quantity=quantity,
             reduce_only=reduce_only,
-            id=id,
+            order_id=order_id,
             status=status,
         )
 
@@ -307,18 +309,18 @@ class LimitOrder(Order):
     def __init__(
             self,
             symbol: str,
-            side: OrderSide | str | int,
+            side: OrderSide,
             amount: float,
             price: float,
             quantity: float,
-            id=None,
+            order_id=None,
             status: str = None,
-            time_in_force: str | TimeInForce = 'GTC',
+            time_in_force=TimeInForce.GTC,
             reduce_only=False,
     ):
 
         super().__init__(
-            id=id,
+            order_id=order_id,
             status=status,
             symbol=symbol,
             side=side,
@@ -340,9 +342,9 @@ class TakeProfitMarketOrder(Order):
     def __init__(
             self,
             symbol: str,
-            side: OrderSide | str | int,
+            side: OrderSide,
             stop_price: float,
-            id=None,
+            order_id=None,
             status: str = None,
     ):
         super().__init__(
@@ -350,7 +352,7 @@ class TakeProfitMarketOrder(Order):
             type=OrderType.TAKE_PROFIT_MARKET,
             side=side,
             close_position=True,
-            id=id,
+            order_id=order_id,
             status=status
         )
         self.stop_price = stop_price
@@ -361,10 +363,10 @@ class TakeProfitLimitOrder(Order):
     def __init__(
             self,
             symbol: str,
-            side: OrderSide | str | int,
+            side: OrderSide,
             price: float,
             stop_price: float,
-            id=None,
+            order_id=None,
             status: str = None,
     ):
         super().__init__(
@@ -373,7 +375,7 @@ class TakeProfitLimitOrder(Order):
             type=OrderType.TAKE_PROFIT_LIMIT,
             stop_price=stop_price,
             price=price,
-            id=id,
+            order_id=order_id,
             status=status
         )
 
@@ -383,9 +385,9 @@ class StopMarketOrder(Order):
     def __init__(
             self,
             symbol: str,
-            side: OrderSide | str | int,
+            side: OrderSide,
             stop_price: float,
-            id=None,
+            order_id=None,
             status: str = None,
     ):
         super().__init__(
@@ -394,7 +396,7 @@ class StopMarketOrder(Order):
             side=side,
             stop_price=stop_price,
             close_position=True,
-            id=id,
+            order_id=order_id,
             status=status
         )
 
@@ -404,10 +406,10 @@ class StopLimitOrder(Order):
     def __init__(
             self,
             symbol: str,
-            side: OrderSide | str | int,
+            side: OrderSide,
             price: float,
             stop_price: float,
-            id=None,
+            order_id=None,
             status: str = None,
     ):
         super().__init__(
@@ -416,6 +418,6 @@ class StopLimitOrder(Order):
             type=OrderType.STOP_LIMIT,
             price=price,
             stop_price=stop_price,
-            id=id,
+            order_id=order_id,
             status=status
         )
