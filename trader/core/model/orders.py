@@ -10,7 +10,7 @@ class Orders(Columnar):
 
     def __init__(self, orders: Iterable[Order]):
         super().__init__()
-        self.id = [order.id for order in orders]
+        self.id = [order.order_id for order in orders]
         self.status = [order.status for order in orders]
         self.symbol = [order.symbol for order in orders]
         self.type = [order.type for order in orders]
@@ -24,4 +24,3 @@ class Orders(Columnar):
         self.reduce_only = [order.reduce_only for order in orders]
         self.activation_price = [order.activation_price for order in orders]
         self.trailing_rate = [order.trailing_rate for order in orders]
-

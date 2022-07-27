@@ -1,7 +1,7 @@
 import numpy as np
 import talib
 
-from trader.data.enumerate import OHLCV
+from trader.data.candle_schema import CLOSE_PRICE
 from trader.data.model import Candles
 
 from trader.core.indicator import Indicator
@@ -13,7 +13,7 @@ class MACDIndicator(Indicator):
 
     def __init__(
             self,
-            line=OHLCV.CLOSE_PRICE,
+            line=CLOSE_PRICE,
             fast_period=12,
             slow_period=26,
             signal_period=9,

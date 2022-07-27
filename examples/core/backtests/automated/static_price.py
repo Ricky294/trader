@@ -1,16 +1,15 @@
 from datetime import datetime
 
 from trader.backtest import BacktestFuturesBroker
-from trader.core.const.trade_actions import LONG, SHORT
 from trader.core.model import Balance, Order, Position
 
-from trader.core.enumerate import MA, OrderSide
-from trader.core.indicator import DoubleMAIndicator
-from trader.core.strategy import IndicatorStrategy, CallbackStrategy
+from trader.core.super_enum import OrderSide
+from trader.core.strategy import CallbackStrategy
 
 from trader.data.binance import get_store_candles
 from trader.data.database import HDF5CandleStorage
 from trader.data.model import Candles
+from trader.data.super_enum import Market
 
 from trader.ui.enumerate import Candlestick
 
@@ -23,9 +22,9 @@ def enter_position_callback(candles: Candles, balance: Balance, orders: list[Ord
 
 
 def exit_position_callback(candles: Candles, balance: Balance, orders: list[Order], position: Position):
-    if position.side == LONG and candles.latest_close_price > 55_000:
+    if position.side == OrderSide.LONG and candles.latest_close_price > 55_000:
         return True
-    elif position.side == SHORT and candles.latest_close_price < 40_000:
+    elif position.side == OrderSide.SHORT and candles.latest_close_price < 40_000:
         return True
 
 
@@ -39,14 +38,14 @@ if __name__ == "__main__":
         base_currency=base_currency,
         quote_currency=quote_currency,
         interval="1d",
-        market="FUTURES",
+        market=Market.FUTURES,
         storage_type=HDF5CandleStorage,
     )
     candles = candles.between(start=datetime(year=2021, month=1, day=1), end=datetime(year=2022, month=1, day=2))
 
     strategy = CallbackStrategy(
         broker=BacktestFuturesBroker(
-            balance=Balance(time=candles.times[0], asset=quote_currency, free=start_cash),
+            balance=Balance(time=candles.times[0], asset=quote_currency, available=start_cash),
             maker_fee_rate=0.0002,
             taker_fee_rate=0.0004,
         ),

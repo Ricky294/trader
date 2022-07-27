@@ -1,10 +1,7 @@
-from enum import Enum
+from trader.data.super_enum import SuperEnum
 
 
-class Candlestick(Enum):
-    LINE = 'Line'
-    JAPANESE = 'Japanese'
-    HEIKIN_ASHI = 'Heikin Ashi'
-
-    def __str__(self):
-        return self.value
+class Candlestick(SuperEnum):
+    LINE = 'LINE'
+    JAPANESE = 'JAPANESE'
+    HEIKIN_ASHI = 'HEIKIN_ASHI'

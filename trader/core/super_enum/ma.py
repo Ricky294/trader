@@ -1,19 +1,18 @@
-from enum import Enum
+from typing import Final
+
+from trader.data.super_enum import SuperEnum
 
 
-class MA(Enum):
-    SMA = 'SMA'
-    EMA = 'EMA'
-    WMA = 'WMA'
-    DEMA = 'DEMA'
-    TEMA = 'TEMA'
-    TRIMA = 'TRIMA'
-    KAMA = 'KAMA'
-    MAMA = 'MAMA'
-    T3 = 'T3'
-
-    def __str__(self):
-        return self.value
+class MA(SuperEnum):
+    SMA: Final = 'SMA'
+    EMA: Final = 'EMA'
+    WMA: Final = 'WMA'
+    DEMA: Final = 'DEMA'
+    TEMA: Final = 'TEMA'
+    TRIMA: Final = 'TRIMA'
+    KAMA: Final = 'KAMA'
+    MAMA: Final = 'MAMA'
+    T3: Final = 'T3'
 
     def __int__(self):
         if self.value == 'SMA':
@@ -34,3 +33,4 @@ class MA(Enum):
             return 7
         elif self.value == 'T3':
             return 8
+        return -1

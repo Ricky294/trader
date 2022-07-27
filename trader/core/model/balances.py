@@ -14,11 +14,11 @@ class Balances(Columnar):
 
         def pnl():
             return np.array([
-                0 if i == 0 else balances[i].free - balances[i - 1].free
+                0 if i == 0 else balances[i].available - balances[i - 1].available
                 for i in range(len(balances))
             ])
 
         self.time = [balance.time for balance in balances]
         self.asset = [balance.asset for balance in balances]
-        self.balance = [balance.free for balance in balances]
+        self.balance = [balance.available for balance in balances]
         self.profit = pnl()

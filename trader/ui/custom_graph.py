@@ -13,7 +13,7 @@ class CustomGraph:
             selected: Graph,
             type,
             params: dict,
-            y: np.ndarray | int | float,
+            y: np.ndarray | float,
     ):
         self.selected = selected
         self.type = getattr(go, type.capitalize()) if isinstance(type, str) else type

@@ -1,21 +1,22 @@
 import numpy as np
 
-from trader.core.enumerate import OrderSide
 from trader.core.model import Position
 from trader.core.strategy import CallbackStrategy
 
 from trader.backtest import BacktestFuturesBroker
 from trader.core.model import Balance
+from trader.core.super_enum import OrderSide
+from trader.data.super_enum import Market
 from trader.data.model import Candles
 
 from trader.ui.enumerate import Candlestick
 
 
-def entry_logic(candles: Candles):
+def entry_logic(*args, **kwargs):
     return OrderSide.SELL, None
 
 
-def exit_logic(candles: Candles, position: Position):
+def exit_logic(*args, **kwargs):
     return True
 
 
@@ -32,12 +33,12 @@ if __name__ == "__main__":
         ]),
         symbol="XY",
         interval="1h",
-        market="SPOT",
+        market=Market.SPOT
     )
 
     strategy = CallbackStrategy(
         broker=BacktestFuturesBroker(
-            balance=Balance(asset=asset, free=cash),
+            balance=Balance(asset=asset, available=cash),
             maker_fee_rate=0.0002,
             taker_fee_rate=0.0004,
         ),

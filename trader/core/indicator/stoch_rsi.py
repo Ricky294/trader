@@ -1,9 +1,9 @@
 import talib
 
+from trader.data.candle_schema import CLOSE_PRICE
 from trader.data.model import Candles
-from trader.data.enumerate import OHLCV
 
-from trader.core.enumerate import MA
+from trader.core.super_enum.ma import MA
 from trader.core.indicator import Indicator
 from trader.core.util.vectorized.trade import cross
 
@@ -12,7 +12,7 @@ class STOCHRSIIndicator(Indicator):
     """Stochastic RSI"""
     def __init__(
             self,
-            line=OHLCV.CLOSE_PRICE,
+            line=CLOSE_PRICE,
             upper_limit=80.0,
             lower_limit=20.0,
             period=14,

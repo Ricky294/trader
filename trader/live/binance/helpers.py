@@ -2,14 +2,13 @@ from __future__ import annotations
 
 from binance.client import Client
 
-from trader.data.enumerate import Market
 from trader.core.util.common import generate_character_sequence, generate_random_string
 from trader.core.exception import PositionError, SymbolError, MarketError
+from trader.data.super_enum import Market
 from trader.live.binance.position import BinancePosition
-from trader.live.binance.symbol_info import BinanceFuturesSymbolInfo
 
 
-def get_symbol_info(symbol: str, market: str | Market):
+def get_symbol_info(symbol: str, market: Market):
     for symbol_info in get_all_symbol_info(market):
         if symbol_info.symbol == symbol:
             return symbol_info
@@ -17,32 +16,31 @@ def get_symbol_info(symbol: str, market: str | Market):
     raise SymbolError(symbol)
 
 
-def get_exchange_info(market: str | Market):
-    market = str(market).upper()
-    if market == 'FUTURES':
+def get_exchange_info(market: Market):
+    if market == Market.FUTURES:
         return Client().futures_exchange_info()
-    elif market == 'SPOT':
+    elif market == Market.SPOT:
         return Client().get_exchange_info()
     raise MarketError(market)
 
 
-def get_all_symbol_info(market: str | Market):
+def get_all_symbol_info(market: Market):
     return get_exchange_info(market)['symbol']
 
 
-def get_all_base_asset(market: str | Market):
+def get_all_base_asset(market: Market):
     """
-    Returns all unique base assets available on Binance `market`.
+    Returns all unique super_enum.py assets available on Binance `market`.
 
     :param market: 'FUTURES' or 'SPOT'
-    :return: set of base assets
+    :return: set of super_enum.py assets
     """
 
     symbols = get_all_symbol_info(market)
     return set(symbol['baseAsset'] for symbol in symbols)
 
 
-def get_all_quote_asset(market: str | Market):
+def get_all_quote_asset(market: Market):
     """
     Returns all unique quote assets available on Binance `market`.
 
@@ -53,11 +51,11 @@ def get_all_quote_asset(market: str | Market):
     return set(symbol['quoteAsset'] for symbol in symbols)
 
 
-def get_all_symbol(market: str | Market):
+def get_all_symbol(market: Market):
     """
     Returns all unique symbols available on Binance `market`.
 
-    Symbol is a concatenation of a base asset and a quote asset (e.g.: 'BTC' + 'USDT' = 'BTCUSDT').
+    Symbol is a concatenation of a super_enum.py asset and a quote asset (e.g.: 'BTC' + 'USDT' = 'BTCUSDT').
 
     :param market: 'FUTURES' or 'SPOT'
     :return: set of symbols

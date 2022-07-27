@@ -5,7 +5,7 @@ from typing import Callable
 
 from trader.data.model import Candles
 
-from trader.core.enumerate import OrderSide
+from trader.core.super_enum import OrderSide
 
 
 class SLTPIndicator(ABC, Callable):
@@ -14,4 +14,4 @@ class SLTPIndicator(ABC, Callable):
     def __init__(self): ...
 
     @abstractmethod
-    def __call__(self, candles: Candles, side: str | int | OrderSide): ...
+    def __call__(self, candles: Candles, side: OrderSide): ...

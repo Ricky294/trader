@@ -5,9 +5,8 @@ from datetime import datetime
 import pandas as pd
 
 import trader.core.model as core_model
-from trader.core.enumerate import OrderSide
+from trader.core.super_enum import OrderSide
 from trader.core.exception import PositionError
-from trader.core.util.trade import side_to_int
 
 from trader.data.model import Model
 
@@ -21,10 +20,10 @@ class Position(Model):
             leverage: int,
             entry_time: int,
             entry_price: float,
-            id=None,
+            position_id=None,
     ):
         return cls(
-            id=id,
+            position_id=position_id,
             symbol=order.symbol,
             amount=order.amount,
             quantity=order.quantity,
@@ -40,10 +39,10 @@ class Position(Model):
             order: core_model.LimitOrder,
             leverage: int,
             entry_time: int,
-            id=None,
+            position_id=None,
     ):
         return cls(
-            id=id,
+            position_id=position_id,
             symbol=order.symbol,
             amount=order.amount,
             quantity=order.quantity,
@@ -58,15 +57,16 @@ class Position(Model):
             symbol: str,
             amount: float,
             quantity: float,
-            side: int | str | OrderSide,
+            side: OrderSide,
             leverage: int,
-            entry_time: int | float,
+            entry_time: float,
             entry_price: float,
-            id=None,
+            position_id=None,
     ):
-        super(Position, self).__init__(id, entry_time)
+        super(Position, self).__init__(entry_time)
+        self.position_id = position_id
         self.symbol = symbol
-        self.side = side_to_int(side)
+        self.side = side
         self.amount = amount
         self.quantity = quantity
         self.leverage = leverage
@@ -75,7 +75,7 @@ class Position(Model):
         self.exit_price = None
         self.closed = False
 
-    def close(self, time: int, price: float):
+    def close(self, time: float, price: float):
         if self.closed:
             raise PositionError("Position already closed!")
 
@@ -105,7 +105,7 @@ class Position(Model):
 
         :examples:
 
-        >>> p1 = Position(symbol='XYZ', amount=100, quantity=1, side='BUY', leverage=1,
+        >>> p1 = Position(symbol='XYZ', amount=100, quantity=1, side=OrderSide.LONG, leverage=1,
         ...               entry_time=1623300000, entry_price=100)
         >>> p1.close(1623300000, 200)
         >>> p1.pd_exit_time()
@@ -120,7 +120,7 @@ class Position(Model):
 if __name__ == '__main__':
     import doctest
     p1 = Position(
-        symbol="XYZ", amount=100, quantity=1, side="BUY", leverage=1,
+        symbol="XYZ", amount=100, quantity=1, side=OrderSide.LONG, leverage=1,
         entry_time=1623300000, entry_price=100
     )
     print(p1.__str__())

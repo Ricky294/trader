@@ -1,8 +1,7 @@
 from trader.backtest.model import BacktestPosition
-from trader.core.const.trade_actions import LONG, SHORT
+from trader.core.super_enum import OrderSide
 import pytest
 
-from trader.core.enumerate import OrderType
 from trader.core.exception import LiquidationError
 
 
@@ -11,10 +10,8 @@ def test_position_long_1x_profit():
         symbol="XYZ",
         entry_time=1,
         entry_price=100,
-        entry_fee=.0,
-        side=LONG,
+        side=OrderSide.LONG,
         amount=100.0,
-        entry_order_type=OrderType.MARKET,
         quantity=1.0,
         leverage=1,
     )
@@ -31,8 +28,7 @@ def test_position_long_1x_profit():
 
 
 def test_position_long_2x_profit():
-    pos_long2x = BacktestPosition(symbol="XYZ", entry_price=100, entry_time=1, amount=100.0, side=LONG, leverage=2,
-                                  entry_fee=.0)
+    pos_long2x = BacktestPosition(symbol="XYZ", entry_price=100, entry_time=1, amount=100.0, side=OrderSide.LONG, leverage=2)
     assert pos_long2x.profit == .0
 
     pos_long2x.update(200)
@@ -48,8 +44,7 @@ def test_position_long_2x_profit():
 
 
 def test_position_short_1x_profit():
-    pos_short = BacktestPosition(symbol="XYZ", entry_price=100, entry_time=1, amount=100.0, side=SHORT, leverage=1,
-                                 entry_fee_rate=.0)
+    pos_short = BacktestPosition(symbol="XYZ", entry_price=100, entry_time=1, amount=100.0, side=OrderSide.SHORT, leverage=1)
     assert pos_short.profit == .0
 
     pos_short.update(200)
@@ -65,8 +60,7 @@ def test_position_short_1x_profit():
 
 
 def test_position_short_2x_profit():
-    pos_short2x = BacktestPosition(symbol="XYZ", entry_price=100, entry_time=1, amount=100.0, side=SHORT, leverage=2,
-                                   entry_fee=.0)
+    pos_short2x = BacktestPosition(symbol="XYZ", entry_price=100, entry_time=1, amount=100.0, side=OrderSide.SHORT, leverage=2)
 
     assert pos_short2x.profit == .0
 

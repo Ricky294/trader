@@ -1,15 +1,23 @@
+from typing import Iterable, Literal
+
 import numpy as np
 import pandas as pd
 
-from trader.core.enumerate import SideFormat, TimeFormat
-from trader.core.enumerate.precision_format import PrecisionFormat
+from trader.config import (
+    BALANCE_PRECISION,
+    FEE_PRECISION,
+    MONEY_PRECISION,
+    PRICE_PRECISION,
+    PROFIT_PRECISION,
+    QUANTITY_PRECISION,
+)
 from trader.core.util.common import all_empty
-from trader.core.util.trade import format_time, format_side, format_number
+import trader.core.util.format as fmt
 
 
 class Columnar:
     """
-    Useful base class to store 2D data structure in columnar orientation.
+    Useful super_enum.py class to store 2D data structure in columnar orientation.
     """
 
     def __init__(self):
@@ -52,56 +60,40 @@ class Columnar:
         return pd.DataFrame(self.to_dict())
 
 
-def format_columnar(columnar: Columnar, format_options: dict[str, any], exclude_empty=True):
+def format_trade(
+        columnar: Columnar,
+        unit: Literal['D', 's', 'ms', 'us', 'ns'],
+        utc=False,
+        exclude_empty=True,
+):
+    def format_values(name: str, values: Iterable):
+        if 'time' in name:
+            return [pd.to_datetime(value, unit=unit, utc=utc) for value in values]
+        elif 'side' in name:
+            return [str(value) for value in values]
+        elif 'balance' in name:
+            prec = BALANCE_PRECISION
+        elif 'fee' in name:
+            prec = FEE_PRECISION
+        elif 'amount' in name:
+            prec = MONEY_PRECISION
+        elif 'price' in name:
+            prec = PRICE_PRECISION
+        elif 'profit' in name:
+            prec = PROFIT_PRECISION
+        elif 'quantity' in name:
+            prec = QUANTITY_PRECISION
+        else:
+            prec = -1
 
-    def fmt(col, array):
-        format_obj = format_options[col]
+        if prec == -1:
+            return [str(value) for value in values]
+        return fmt.num(values, prec=prec)
 
-        if isinstance(format_obj, TimeFormat):
-            return format_time(array, format_obj)
-        elif isinstance(format_obj, SideFormat):
-            return format_side(array, format_obj)
-        elif isinstance(format_obj, PrecisionFormat):
-            return format_number(array, format_obj)
-        return array
-
-    fmt_dict = {
-       col: fmt(col, array) if col in format_options
-       else array
-       for col, array in columnar.to_dict().items()
-    }
+    fmt_dict = {col: format_values(col, values) for col, values in columnar.to_dict().items()}
 
     return (
         {col: data for col, data in fmt_dict.items() if not all_empty(data)}
         if exclude_empty
         else fmt_dict
     )
-
-
-def format_trade(
-        columnar: Columnar,
-        time_format=TimeFormat.PANDAS,
-        side_format=SideFormat.LONG_SHORT,
-        exclude_empty=True,
-):
-    def get_format(col):
-        if 'time' in col:
-            return time_format
-        elif 'side' in col:
-            return side_format
-        elif 'balance' in col:
-            return PrecisionFormat.BALANCE
-        elif 'fee' in col:
-            return PrecisionFormat.FEE
-        elif 'amount' in col:
-            return PrecisionFormat.MONEY
-        elif 'price' in col:
-            return PrecisionFormat.PRICE
-        elif 'profit' in col:
-            return PrecisionFormat.PROFIT
-        elif 'quantity' in col:
-            return PrecisionFormat.QUANTITY
-
-    format_options = {col: get_format(col) for col in columnar.columns}
-
-    return format_columnar(columnar, format_options=format_options, exclude_empty=exclude_empty)

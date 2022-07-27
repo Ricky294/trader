@@ -8,11 +8,9 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from trader.core.const.trade_actions import LONG, SHORT
-from trader.core.enumerate import SideFormat
 from trader.core.model.balances import Balances
 from trader.core.model.fees import Fees
-from trader.core.util.trade import format_side
+from trader.core.super_enum import OrderSide
 from trader.data.model import Candles
 
 from trader.config import (
@@ -337,17 +335,18 @@ class TradeGraphs:
                 y=entry_long_y - np.sqrt(entry_long_y) * 2.,
                 color=long_entry_marker_color,
                 symbol='triangle-up',
-                text=[fmt.capitalize(format_side(long, SideFormat.LONG_SHORT)) for long in self.positions.long_side],
+                text=[fmt.capitalize(str(long)) for long in self.positions.long_side],
                 text_position='bottom center',
                 customdata=self._create_custom_data(
                     self.positions.long_entry_price,
                     self.positions.long_money,
                     self.positions.long_quantity,
-                    self.fees.entry_fee[self.positions.side == LONG]
+                    self.positions.long_leverage,
+                    self.fees.entry_fee[self.positions.side == OrderSide.LONG]
                 ),
                 hovertemplate=self._create_hover_template(
-                    ['Price', 'Money', 'Quantity', 'Fee'],
-                    [PRICE_PRECISION, MONEY_PRECISION, QUANTITY_PRECISION, FEE_PRECISION],
+                    ['Price', 'Money', 'Quantity', 'Leverage', 'Fee'],
+                    [PRICE_PRECISION, MONEY_PRECISION, QUANTITY_PRECISION, None, FEE_PRECISION],
                 )
             )
         )
@@ -361,17 +360,18 @@ class TradeGraphs:
                 name='Short entry',
                 color=short_entry_marker_color,
                 symbol='triangle-up',
-                text=[fmt.capitalize(format_side(short, SideFormat.LONG_SHORT)) for short in self.positions.short_side],
+                text=[fmt.capitalize(str(short)) for short in self.positions.short_side],
                 text_position='bottom center',
                 customdata=self._create_custom_data(
                     self.positions.short_entry_price,
                     self.positions.short_money,
                     self.positions.short_quantity,
-                    self.fees.entry_fee[self.positions.side == SHORT]
+                    self.positions.short_leverage,
+                    self.fees.entry_fee[self.positions.side == OrderSide.SHORT]
                 ),
                 hovertemplate=self._create_hover_template(
-                    ['Price', 'Money', 'Quantity', 'Fee'],
-                    [PRICE_PRECISION, MONEY_PRECISION, QUANTITY_PRECISION, FEE_PRECISION],
+                    ['Price', 'Money', 'Quantity', 'Leverage', 'Fee'],
+                    [PRICE_PRECISION, MONEY_PRECISION, QUANTITY_PRECISION, None, FEE_PRECISION],
                 ),
             ),
         )
@@ -409,14 +409,14 @@ class TradeGraphs:
                 color=long_exit_marker_color,
                 symbol='triangle-down',
                 text=[
-                    f'X {fmt.capitalize(format_side(side, SideFormat.LONG_SHORT))}'
+                    f'X {fmt.capitalize(str(side))}'
                     for side in self.positions.long_side
                 ],
                 text_position='top center',
                 customdata=self._create_custom_data(
                     long_exit_price,
                     long_profit,
-                    self.fees.exit_fee[side == LONG]
+                    self.fees.exit_fee[side == OrderSide.LONG]
                 ),
                 hovertemplate=self._create_hover_template(
                     ['Price', 'Profit', 'Fee'],
@@ -434,12 +434,12 @@ class TradeGraphs:
                 name='Short exit',
                 color=short_exit_marker_color,
                 symbol='triangle-down',
-                text=[f'X {fmt.capitalize(format_side(side, SideFormat.LONG_SHORT))}' for side in self.positions.short_side],
+                text=[f'X {fmt.capitalize(str(side))}' for side in self.positions.short_side],
                 text_position='top center',
                 customdata=self._create_custom_data(
                     short_exit_price,
                     short_profit,
-                    self.fees.exit_fee[side == SHORT]
+                    self.fees.exit_fee[side == OrderSide.SHORT]
                 ),
                 hovertemplate=self._create_hover_template(
                     ['Price', 'Profit', 'Fee'],

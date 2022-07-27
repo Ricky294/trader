@@ -1,34 +1,16 @@
 from typing import Iterable, Callable
 
-from trader.core.model import Position
-from trader.core.strategy import Strategy
-from trader.data.model import Candles
+import trader.core.strategy.vector as strategy
 
-from trader.core.const.trade_actions import SELL, BUY
-from trader.core.enumerate import OrderSide, Mode
-from trader.core.exception import TraderError
 from trader.core.indicator import Indicator
 from trader.core.interface import FuturesBroker
+from trader.core.model import Position, Balance
+from trader.core.super_enum import Mode, OrderSide
+
+from trader.data.model import Candles
 
 
-class IndicatorStrategy(Strategy):
-
-    @staticmethod
-    def _cached_results(functions: Iterable[Callable]):
-        results = tuple(fun() for fun in functions)
-
-        def wrapper(i):
-            result_i = tuple(bool(res[i]) for res in results)
-            return all(result_i)
-
-        return wrapper
-
-    @staticmethod
-    def _results(functions: Iterable[Callable]):
-        def wrapper(i):
-            result_i = tuple(bool(fun()[i]) for fun in functions)
-            return all(result_i)
-        return wrapper
+class IndicatorStrategy(strategy.VectorStrategy):
 
     def _update_indicators(self, candles: Candles):
         for ind in self.indicators:
@@ -74,62 +56,30 @@ class IndicatorStrategy(Strategy):
         Note: Exit conditions, take profit and stop loss price logic are optional, but you should define either
         the exit conditions or the take profit/stop loss logics in order to exit positions.
         """
-        if trade_ratio <= 0 or trade_ratio >= 1:
-            raise TraderError(f"trade_ratio must be between 0 and 1")
 
-        super(IndicatorStrategy, self).__init__(broker=broker, candles=candles, asset=asset)
-
-        self.trade_ratio = trade_ratio
-        self.leverage = leverage
         self.indicators = indicators
-
-        wrapper = self._cached_results if self.mode == Mode.BACKTEST else self._results
         self._update_indicators(candles)
 
-        self.entry_buy_conditions = wrapper(entry_long_conditions)
-        self.entry_sell_conditions = wrapper(entry_short_conditions)
-        self.exit_buy_conditions = wrapper(exit_long_conditions)
-        self.exit_sell_conditions = wrapper(exit_short_conditions)
+        super().__init__(
+            broker=broker,
+            candles=candles,
+            asset=asset,
+            leverage=leverage,
+            trade_ratio=trade_ratio,
+            entry_long_conditions=entry_long_conditions,
+            entry_short_conditions=entry_short_conditions,
+            exit_long_conditions=exit_long_conditions,
+            exit_short_conditions=exit_short_conditions,
+            entry_price=entry_price,
+            profit_price=profit_price,
+            stop_price=stop_price,
+            exit_price=exit_price,
+        )
 
-        self.entry_price = entry_price
-        self.exit_price = exit_price
-        self.profit_price = profit_price
-        self.stop_price = stop_price
-
-    def __call__(self, candles: Candles):
-
-        def enter_position(side: OrderSide):
-            price = self.entry_price(candles, side)
-            tp_price = self.profit_price(candles, side)
-            sl_price = self.stop_price(candles, side)
-            self.broker.enter_position(
-                symbol=candles.symbol,
-                amount=self.broker.get_balance(self.asset).free * self.trade_ratio,
-                asset=self.asset,
-                leverage=self.leverage,
-                side=side,
-                price=price,
-                profit_price=tp_price,
-                stop_price=sl_price,
-            )
-
-        def exit_position():
-            price = self.exit_price(candles, position)
-            self.broker.close_position(price=price)
-
+    def in_position(self, candles: Candles, position: Position, *args, **kwargs):
         if self.mode == Mode.LIVE:
             self._update_indicators(candles)
+        super().in_position(candles=candles, position=position, *args, **kwargs)
 
-        last_index = len(candles) - 1
-        position = self.broker.get_position(candles.symbol)
-
-        if position is None:
-            if self.entry_buy_conditions(last_index):
-                enter_position(OrderSide.BUY)
-            elif self.entry_sell_conditions(last_index):
-                enter_position(OrderSide.SELL)
-        else:
-            if position.side == SELL and self.exit_buy_conditions(last_index):
-                exit_position()
-            elif position.side == BUY and self.exit_sell_conditions(last_index):
-                exit_position()
+    def not_in_position(self, candles: Candles, balance: Balance, *args, **kwargs):
+        super().not_in_position(candles=candles, balance=balance, *args, **kwargs)

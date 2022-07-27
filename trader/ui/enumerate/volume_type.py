@@ -1,9 +1,6 @@
-from enum import Enum
+from trader.data.super_enum import SuperEnum
 
 
-class Volume(Enum):
-    LINE = 'Line'
-    BAR = 'Bar'
-
-    def __str__(self):
-        return self.value
+class Volume(SuperEnum):
+    LINE = 'LINE'
+    BAR = 'BAR'

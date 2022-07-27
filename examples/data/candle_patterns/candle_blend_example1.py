@@ -3,6 +3,7 @@ import numpy as np
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
+from trader.data.super_enum import Market
 from trader.data.binance import get_candles_as_array
 from trader.data.util import blend_ohlc
 
@@ -25,7 +26,7 @@ if __name__ == "__main__":
     candles = get_candles_as_array(
         symbol="BTCUSDT",
         interval="4h",
-        market="SPOT",
+        market=Market.SPOT,
         start_ts=1640991600,
         end_ts=1643670000
     ).T

@@ -4,13 +4,13 @@ from typing import Callable
 
 import numpy as np
 
-from trader.data.schema import OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE
+from trader.data.candle_schema import OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE
 from trader.data.binance import (
     candle_stream, get_candles_as_array, CLOSE_TIME, QUOTE_ASSET_VOLUME, NUMBER_OF_TRADES,
     TAKER_BUY_BASE_ASSET_VOLUME, TAKER_BUY_QUOTE_ASSET_VOLUME
 )
 
-from trader.data.enumerate import Market
+from trader.data.super_enum import Market
 from trader.data.model import Candles
 
 
@@ -36,7 +36,7 @@ class BinanceCandles(Candles):
             candles: np.ndarray,
             symbol: str,
             interval: str,
-            market: str | Market,
+            market: Market,
             schema=(
                 OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE,
                 CLOSE_TIME, QUOTE_ASSET_VOLUME, NUMBER_OF_TRADES,
@@ -47,12 +47,14 @@ class BinanceCandles(Candles):
 
     def start_candle_stream(
             self,
+            on_candle_close_kwargs: Callable[[Candles], dict[str, any]],
             on_candle_close: Callable[[Candles], any],
             on_candle: Callable[[dict], any],
             log_candles=True
     ):
         candle_stream(
             candles=self,
+            on_candle_close_kwargs=on_candle_close_kwargs,
             on_candle_close=on_candle_close,
             on_candle=on_candle,
             log_candles=log_candles,

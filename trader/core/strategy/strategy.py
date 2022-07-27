@@ -8,8 +8,9 @@ from tqdm import trange
 
 from trader.backtest import BacktestFuturesBroker
 
-from trader.config import MONEY_PRECISION
-from trader.core.enumerate import Mode
+import trader.core.util.format as fmt
+from trader.core.model import Balance, Position, Order
+from trader.core.super_enum import Mode
 from trader.core.exception import TraderError
 from trader.core.indicator import Indicator
 from trader.core.interface import FuturesBroker
@@ -25,7 +26,7 @@ from trader.ui.enumerate import Candlestick, Volume
 
 
 def _call_with_candles(func: Callable, candles: Candles):
-    # Use this wrapper to pass candles to functions instead of saving candles as instance variable in __init__.
+    # This wrapper is to pass candles to function instead of saving it as an instance variable in __init__.
     def wrapper(*args, **kwargs):
         return func(candles, *args, **kwargs)
 
@@ -49,28 +50,59 @@ class Strategy(Callable, ABC):
             raise TraderError(f'Unsupported broker: {type(broker).__class__.__name__}.')
 
     @abstractmethod
-    def __call__(self, candles: Candles):
-        ...
+    def __call__(
+            self,
+            candles: Candles,
+            balance: Balance,
+            open_orders: list[Order],
+            position: Position | None,
+            leverage: int,
+            *args,
+            **kwargs,
+    ): ...
+
+    def _get_call_kwargs(self, candles: Candles):
+        balance = self.broker.get_balance(self.asset)
+        position = self.broker.get_position(symbol=candles.symbol)
+        open_orders = self.broker.get_open_orders(symbol=candles.symbol)
+        leverage = self.broker.get_leverage(symbol=candles.symbol)
+        return dict(candles=candles, balance=balance, open_orders=open_orders, position=position, leverage=leverage)
 
     def __binance_run(self, candles: Candles):
-        candle_stream(candles=candles, on_candle_close=self.__call__, on_candle=lambda: ())
+        self.broker: BinanceFuturesBroker
+        candle_stream(
+            candles=candles,
+            on_candle=lambda: (),
+            on_candle_close=self.__call__,
+            on_candle_close_kwargs=self._get_call_kwargs
+        )
 
     def __backtest_run(self, candles: Candles):
-        if not isinstance(self.broker, BacktestFuturesBroker):
-            raise TraderError(f'Unsupported broker: {type(self.broker).__class__.__name__}')
+        self.broker: BacktestFuturesBroker
 
-        get_core_logger().info(f'Running backtest on {len(candles)} candles.')
+        def log(msg: str):
+            get_core_logger().info(msg)
+
+        log(f'Running backtest on {len(candles)} candles.')
 
         for _, candles in zip(trange(len(candles)), candles.replayer()):
             self.broker(candles)
-            self.__call__(candles)
+            self.__call__(**self._get_call_kwargs(candles))
 
         self.broker.finished()
 
-        get_core_logger().info(
-            f'Finished backtesting. Entered {len(self.broker.positions)} positions. '
-            f'Final balance: {self.broker.balances[-1].free:.{MONEY_PRECISION}f} {self.broker.balances[-1].asset}'
-        )
+        number_of_positions = len(self.broker.positions)
+        number_of_wins = 0
+        for pos in self.broker.positions:
+            if pos.profit > 0:
+                number_of_wins += 1
+
+        log(f'Finished backtesting on {len(candles)} candles.')
+        log(f'Entered {number_of_positions} positions.')
+        log(f'Wins: {number_of_wins}, '
+            f'Losses: {number_of_positions - number_of_wins}, '
+            f'Win rate: {fmt.num(number_of_wins / number_of_positions, prec=2, perc=True)}')
+        log(f'Balance: {self.broker.balances[0].value_str()} -> {self.broker.balances[-1].value_str()}')
 
     def __plot(
             self,

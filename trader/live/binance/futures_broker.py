@@ -4,18 +4,19 @@ import logging
 
 from binance.client import Client
 
-from trader.core.enumerate import OrderSide, TimeInForce
+from trader.config import LIVE_LOGGING
+
+from trader.core.super_enum import OrderSide, TimeInForce
 from trader.core.interface import FuturesBroker
 from trader.core.model import Order
+from trader.core.util.common import log_method_return
 from trader.core.util.trade import create_orders
 from trader.core.exception import BalanceError, PositionError
 
 from .balance import BinanceBalance
 from .position import BinancePosition, close_position_market, close_position_limit, take_profit_market, stop_loss_market
 from .helpers import get_symbol_info, get_position
-from ..log import get_live_logger
-from ...config import LIVE_LOGGING
-from ...core.util.common import log_method_return
+from trader.live.log import get_live_logger
 
 
 @log_method_return(logger=get_live_logger(), level=logging.INFO, log=LIVE_LOGGING)
@@ -28,7 +29,7 @@ class BinanceFuturesBroker(FuturesBroker):
     def get_latest_price(self, symbol: str):
         return float(self.client.futures_symbol_ticker(symbol=symbol)['price'])
 
-    def close_position_limit(self, symbol: str, price: float, time_in_force: TimeInForce | str = 'GTC'):
+    def close_position_limit(self, symbol: str, price: float, time_in_force=TimeInForce.GTC):
         position = self.get_position(symbol=symbol)
 
         if position is None:
@@ -86,7 +87,7 @@ class BinanceFuturesBroker(FuturesBroker):
             self,
             symbol: str,
             amount: float,
-            side: int | OrderSide,
+            side: OrderSide,
             leverage: int,
             price: float = None,
             take_profit_price: float = None,
@@ -139,7 +140,7 @@ class BinanceFuturesBroker(FuturesBroker):
             BinanceBalance(
                 asset=balance['asset'],
                 total=balance['balance'],
-                free=balance['withdrawAvailable'],
+                available=balance['withdrawAvailable'],
             )
             for balance in balances
             if float(balance['withdrawAvailable']) > 0.0

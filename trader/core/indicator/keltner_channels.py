@@ -4,9 +4,8 @@ import numpy as np
 import talib
 
 from trader.data.model import Candles
-from trader.data.enumerate import OHLCV
-
-from trader.core.enumerate import MA
+from trader.data.candle_schema import CLOSE_PRICE
+from trader.core.super_enum.ma import MA
 from trader.core.util.vectorized.trade import talib_ma
 from trader.core.indicator import Indicator
 
@@ -16,10 +15,10 @@ class KeltnerChannelsIndicator(Indicator):
 
     def __init__(
             self,
-            line=OHLCV.CLOSE_PRICE,
+            line=CLOSE_PRICE,
             atr_period=10,
             ma_period=20,
-            ma_type: str | MA = MA.EMA,
+            ma_type: MA = MA.EMA,
             multiplier=2.0,
     ):
         self.line = line

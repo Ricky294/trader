@@ -3,9 +3,9 @@ from __future__ import annotations
 import numpy as np
 
 from trader.data.model import Candles
-from trader.data.enumerate import OHLCV
+from trader.data.candle_schema import CLOSE_PRICE
 
-from trader.core.enumerate import MA
+from trader.core.super_enum import MA
 from trader.core.indicator import Indicator
 from trader.core.util.vectorized.trade import talib_ma, slope
 
@@ -16,10 +16,10 @@ class MeanReversionIndicator(Indicator):
     def __init__(
             self,
             ma_period: int,
-            ma_type: str | MA,
+            ma_type: MA,
             slope_period: int,
             slope_limit: float,
-            ma_line=OHLCV.CLOSE_PRICE,
+            ma_line=CLOSE_PRICE,
     ):
         self.ma_period = ma_period
         self.slope_period = slope_period

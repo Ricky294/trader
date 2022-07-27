@@ -1,15 +1,19 @@
 import pandas as pd
 
+from trader.config import BALANCE_PRECISION
 from trader.core.exception import BalanceError
 from trader.data.model import Model
 
 
 class Balance(Model):
 
-    def __init__(self, time: int | float, free: float, asset: str, id=None):
-        super().__init__(id, time)
-        self.free = float(free)
+    def __init__(self, available: float, asset: str, time: float = None):
+        super().__init__(time)
+        self.available = float(available)
         self.asset = asset
+
+    def value_str(self):
+        return f'{self.available:.{BALANCE_PRECISION}f} {self.asset}'
 
     @property
     def pd_time(self):
@@ -51,7 +55,7 @@ class Balance(Model):
         self._type_check(other)
         self._asset_check(other)
 
-        return self.free > other.free
+        return self.available > other.available
 
     def __ge__(self, other):
         """
@@ -78,7 +82,7 @@ class Balance(Model):
         self._type_check(other)
         self._asset_check(other)
 
-        return self.free >= other.free
+        return self.available >= other.available
 
     def __lt__(self, other):
         """
@@ -105,7 +109,7 @@ class Balance(Model):
         self._type_check(other)
         self._asset_check(other)
 
-        return self.free < other.free
+        return self.available < other.available
 
     def __le__(self, other):
         """
@@ -132,4 +136,4 @@ class Balance(Model):
         self._type_check(other)
         self._asset_check(other)
 
-        return self.free <= other.free
+        return self.available <= other.available

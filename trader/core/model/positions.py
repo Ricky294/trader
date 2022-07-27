@@ -2,7 +2,7 @@ from typing import Iterable
 
 import numpy as np
 
-from trader.core.const.trade_actions import LONG, SHORT
+from trader.core.super_enum import OrderSide
 from trader.core.model import Position
 from trader.data.model import Columnar
 
@@ -27,67 +27,75 @@ class Positions(Columnar):
 
     @property
     def long_entry_time(self):
-        return self.entry_time[self.side == LONG]
+        return self.entry_time[self.side == OrderSide.LONG]
 
     @property
     def long_entry_price(self):
-        return self.entry_price[self.side == LONG]
+        return self.entry_price[self.side == OrderSide.LONG]
 
     @property
     def long_side(self):
-        return self.side[self.side == LONG]
+        return self.side[self.side == OrderSide.LONG]
 
     @property
     def long_money(self):
-        return self.amount[self.side == LONG]
+        return self.amount[self.side == OrderSide.LONG]
 
     @property
     def long_quantity(self):
-        return self.quantity[self.side == LONG]
+        return self.quantity[self.side == OrderSide.LONG]
+
+    @property
+    def long_leverage(self):
+        return self.leverage[self.side == OrderSide.LONG]
 
     @property
     def short_entry_time(self):
-        return self.entry_time[self.side == SHORT]
+        return self.entry_time[self.side == OrderSide.SHORT]
 
     @property
     def short_entry_price(self):
-        return self.entry_price[self.side == SHORT]
+        return self.entry_price[self.side == OrderSide.SHORT]
 
     @property
     def short_side(self):
-        return self.side[self.side == SHORT]
+        return self.side[self.side == OrderSide.SHORT]
 
     @property
     def short_money(self):
-        return self.amount[self.side == SHORT]
+        return self.amount[self.side == OrderSide.SHORT]
 
     @property
     def short_quantity(self):
-        return self.quantity[self.side == SHORT]
+        return self.quantity[self.side == OrderSide.SHORT]
+
+    @property
+    def short_leverage(self):
+        return self.leverage[self.side == OrderSide.SHORT]
 
     @property
     def long_exit_time(self):
-        return self.exit_time[self.side == LONG]
+        return self.exit_time[self.side == OrderSide.LONG]
 
     @property
     def short_exit_time(self):
-        return self.exit_time[self.side == SHORT]
+        return self.exit_time[self.side == OrderSide.SHORT]
 
     @property
     def long_exit_price(self):
-        return self.exit_price[self.side == LONG]
+        return self.exit_price[self.side == OrderSide.LONG]
 
     @property
     def short_exit_price(self):
-        return self.exit_price[self.side == SHORT]
+        return self.exit_price[self.side == OrderSide.SHORT]
 
     @property
     def long_profit(self):
-        return self.profit[self.side == LONG]
+        return self.profit[self.side == OrderSide.LONG]
 
     @property
     def short_profit(self):
-        return self.profit[self.side == SHORT]
+        return self.profit[self.side == OrderSide.SHORT]
 
     @property
     def positive_profit(self):

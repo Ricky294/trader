@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from trader.data.model import Candles
-from trader.data.enumerate import OHLCV
+from trader.data.candle_schema import CLOSE_PRICE
 
-from trader.core.enumerate import MA
+from trader.core.super_enum import MA
 from trader.core.indicator import Indicator
 from trader.core.util.vectorized.trade import talib_ma
 
@@ -14,8 +14,8 @@ class SingleMAIndicator(Indicator):
     def __init__(
             self,
             period: int,
-            ma_type: str | MA,
-            line=OHLCV.CLOSE_PRICE,
+            ma_type: MA,
+            line=CLOSE_PRICE,
     ):
         self.period = period
         self.ma_type = ma_type

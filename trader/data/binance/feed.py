@@ -8,13 +8,13 @@ import pandas as pd
 import requests
 from tqdm import tqdm
 
+from trader.data.super_enum import Market
 from trader.data.database import CandleStorage
 from trader.data.log import get_data_logger
 from trader.data.util import interval_to_seconds
-from trader.data.enumerate import Market
 from trader.data.model import Candles
-from trader.data.schema import OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE, VOLUME
-from trader.data.binance.schema import NAME_TO_INDEX
+from trader.data.candle_schema import OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE, VOLUME
+from trader.data.binance.candle_schema import BINANCE_CANDLE_SCHEMA_TO_INDEX
 
 SPOT_CANDLE_URL = "https://api.binance.com/api/v3/klines"
 FUTURES_CANDLE_URL = "https://fapi.binance.com/fapi/v1/klines"
@@ -29,19 +29,19 @@ def filter_columns(array: np.ndarray, columns: Iterable[str]):
     :return: numpy array generator
     """
 
-    return tuple(array[:, NAME_TO_INDEX[col]] for col in columns)
+    return tuple(array[:, BINANCE_CANDLE_SCHEMA_TO_INDEX[col]] for col in columns)
 
 
 def get_first_candle_timestamp(
         symbol: str,
         interval: str,
-        market: str | Market,
+        market: Market,
 ) -> int:
     """Returns the first available candle data timestamp on binance `symbol`, `interval`, `market` in seconds."""
 
-    if str(market).upper() == "SPOT":
+    if market == Market.SPOT:
         url = SPOT_CANDLE_URL
-    elif str(market).upper() == "FUTURES":
+    elif market == Market.FUTURES:
         url = FUTURES_CANDLE_URL
     else:
         raise ValueError(f"Invalid market type: {market}")
@@ -54,13 +54,13 @@ def get_first_candle_timestamp(
 def _build_url(
         symbol: str,
         interval: str,
-        market: str | Market,
-        end_ts: float | int = None,
+        market: Market,
+        end_ts: float = None,
         limit=1000,
 ):
-    if str(market).upper() == "SPOT":
+    if market == Market.SPOT:
         url = SPOT_CANDLE_URL
-    elif str(market).upper() == "FUTURES":
+    elif market == Market.FUTURES:
         url = FUTURES_CANDLE_URL
     else:
         raise ValueError(f"Invalid market type: {market}")
@@ -76,9 +76,9 @@ def _build_url(
 def estimate_total_items(
         symbol: str,
         interval: str,
-        market: str | Market,
-        start_ts: float | int,
-        end_ts: float | int = None,
+        market: Market,
+        start_ts: float,
+        end_ts: float = None,
 ):
     """Estimated the total number of candles to download."""
 
@@ -98,9 +98,9 @@ def estimate_total_items(
 def get_candles_as_list(
         symbol: str,
         interval: str,
-        market: str | Market,
-        start_ts: float | int,
-        end_ts: float | int = None,
+        market: Market,
+        start_ts: float,
+        end_ts: float = None,
         limit=1000,
 ) -> list[list]:
     """
@@ -144,9 +144,9 @@ def get_candles_as_list(
 def get_candles_as_array(
         symbol,
         interval: str,
-        market: str | Market,
-        start_ts: float | int,
-        end_ts: float | int = None,
+        market: Market,
+        start_ts: float,
+        end_ts: float = None,
         columns: Iterable[str] = (OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE, VOLUME),
 ) -> np.ndarray:
     """
@@ -198,9 +198,9 @@ def get_candles_as_dataframe(
         base_currency: str,
         quote_currency: str,
         interval: str,
-        market: str | Market,
-        start_ts: float | int,
-        end_ts: float | int = None,
+        market: Market,
+        start_ts: float,
+        end_ts: float = None,
         columns: Iterable[str] = (OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE, VOLUME),
 ):
     """
@@ -253,9 +253,9 @@ def get_tohlcv_candles(
         base_currency: str,
         quote_currency: str,
         interval: str,
-        market: str | Market,
-        start_ts: float | int,
-        end_ts: float | int = None,
+        market: Market,
+        start_ts: float,
+        end_ts: float = None,
 ):
     """
     Returns a Candles object with the following schema:
@@ -287,7 +287,7 @@ def get_store_candles(
         base_currency: str,
         quote_currency: str,
         interval: str,
-        market: str | Market,
+        market: Market,
         storage_type: Type[CandleStorage],
         storage_dir="data/binance",
         columns=(OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE, VOLUME),

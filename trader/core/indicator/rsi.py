@@ -4,7 +4,7 @@ import talib
 import nputils as npu
 
 from trader.data.model import Candles
-from trader.data.enumerate import OHLCV
+from trader.data.candle_schema import CLOSE_PRICE
 
 from trader.core.util.vectorized.trade import cross
 from trader.core.indicator import Indicator
@@ -15,7 +15,7 @@ class RSIIndicator(Indicator):
 
     def __init__(
             self,
-            line=OHLCV.CLOSE_PRICE,
+            line=CLOSE_PRICE,
             period=14,
             upper_limit=70.0,
             lower_limit=30.0,
