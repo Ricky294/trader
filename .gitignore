@@ -1,5 +1,7 @@
 # Custom ignores
 
+secrets/
+
 data
 !trader/data
 !examples/data
