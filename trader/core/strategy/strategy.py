@@ -1,173 +1,136 @@
 from __future__ import annotations
 
-import concurrent.futures
-from abc import ABC, abstractmethod
-from typing import Callable, Iterable
-
-from tqdm import trange
+import logging
+from functools import wraps
 
 from trader.backtest import BacktestFuturesBroker
 
-import trader.core.util.format as fmt
-from trader.core.model import Balance, Position, Order
-from trader.core.super_enum import Mode
-from trader.core.exception import TraderError
-from trader.core.indicator import Indicator
+from trader.core.const import Mode
 from trader.core.interface import FuturesBroker
-from trader.core.log import get_core_logger
+from trader.core.model import Balance, Position, Order
+from trader.core.util import(
+    store_iterable_object_names,
+    cache_array_return_annotated_funcs,
+    sliced_iterable_getattribute_wrapper,
+)
 
-from trader.data.binance import candle_stream
 from trader.data.model import Candles
-
-from trader.live.binance import BinanceFuturesBroker
-
-from trader.ui import UIApp, CustomGraph
-from trader.ui.enumerate import Candlestick, Volume
+from trader.log import logger
 
 
-def _call_with_candles(func: Callable, candles: Candles):
-    # This wrapper is to pass candles to function instead of saving it as an instance variable in __init__.
-    def wrapper(*args, **kwargs):
-        return func(candles, *args, **kwargs)
+def set_broker_callbacks(strategy: Strategy, broker: FuturesBroker):
+    broker.on_new_orders = strategy.on_new_orders
+    broker.on_filled_orders = strategy.on_filled_orders
+    broker.on_cancel_orders = strategy.on_cancel_orders
+
+    broker.on_position_close = strategy.on_position_close
+    broker.on_position_open = strategy.on_position_open
+
+    broker.on_balance_change = strategy.on_balance_change
+    broker.on_balance_gain = strategy.on_balance_gain
+    broker.on_balance_loss = strategy.on_balance_loss
+
+
+def _strategy_init_wrapper(init):
+
+    @wraps(init)
+    def wrapper(self, *args, **kwargs):
+        self._candles = kwargs.pop('_Strategy__candles')
+        self._broker = kwargs.pop('_Strategy__broker')
+
+        init(self, *args, **kwargs)
+
+        store_iterable_object_names(self)
+        cache_array_return_annotated_funcs(self)
+
+        set_broker_callbacks(strategy=self, broker=self._broker)
+
+        self.__class__.__getattribute__ = sliced_iterable_getattribute_wrapper(self.__class__.__getattribute__)
 
     return wrapper
 
 
-class Strategy(Callable, ABC):
+class StrategyMeta(type):
 
-    def __init__(self, candles: Candles, broker: FuturesBroker, asset: str):
-        self.broker = broker
-        self.asset = asset
-
-        self.plot = _call_with_candles(self.__plot, candles)
-        if isinstance(broker, BacktestFuturesBroker):
-            self.mode = Mode.BACKTEST
-            self.run = _call_with_candles(self.__backtest_run, candles)
-        elif isinstance(broker, BinanceFuturesBroker):
-            self.mode = Mode.LIVE
-            self.run = _call_with_candles(self.__binance_run, candles)
-        else:
-            raise TraderError(f'Unsupported broker: {type(broker).__class__.__name__}.')
-
-    @abstractmethod
-    def __call__(
-            self,
-            candles: Candles,
-            balance: Balance,
-            open_orders: list[Order],
-            position: Position | None,
-            leverage: int,
-            *args,
-            **kwargs,
-    ): ...
-
-    def _get_call_kwargs(self, candles: Candles):
-        balance = self.broker.get_balance(self.asset)
-        position = self.broker.get_position(symbol=candles.symbol)
-        open_orders = self.broker.get_open_orders(symbol=candles.symbol)
-        leverage = self.broker.get_leverage(symbol=candles.symbol)
-        return dict(candles=candles, balance=balance, open_orders=open_orders, position=position, leverage=leverage)
-
-    def __binance_run(self, candles: Candles):
-        self.broker: BinanceFuturesBroker
-        candle_stream(
-            candles=candles,
-            on_candle=lambda: (),
-            on_candle_close=self.__call__,
-            on_candle_close_kwargs=self._get_call_kwargs
-        )
-
-    def __backtest_run(self, candles: Candles):
-        self.broker: BacktestFuturesBroker
-
-        def log(msg: str):
-            get_core_logger().info(msg)
-
-        log(f'Running backtest on {len(candles)} candles.')
-
-        for _, candles in zip(trange(len(candles)), candles.replayer()):
-            self.broker(candles)
-            self.__call__(**self._get_call_kwargs(candles))
-
-        self.broker.finished()
-
-        number_of_positions = len(self.broker.positions)
-        number_of_wins = 0
-        for pos in self.broker.positions:
-            if pos.profit > 0:
-                number_of_wins += 1
-
-        log(f'Finished backtesting on {len(candles)} candles.')
-        log(f'Entered {number_of_positions} positions.')
-        log(f'Wins: {number_of_wins}, '
-            f'Losses: {number_of_positions - number_of_wins}, '
-            f'Win rate: {fmt.num(number_of_wins / number_of_positions, prec=2, perc=True)}')
-        log(f'Balance: {self.broker.balances[0].value_str()} -> {self.broker.balances[-1].value_str()}')
-
-    def __plot(
-            self,
-            candles: Candles,
-            candlestick_type: Candlestick = Candlestick.LINE,
-            volume_type: Volume = Volume.LINE,
-            custom_graphs: Iterable[CustomGraph | Indicator] = ()
-    ):
-
-        if not isinstance(self.broker, BacktestFuturesBroker):
-            raise TraderError(f'Strategy can be plotted only if broker is instance of BacktestFuturesBroker.')
-
-        UIApp(
-            candles=candles,
-            positions=self.broker.positions,
-            orders=self.broker.orders,
-            balances=self.broker.balances,
-            entry_fees=self.broker.entry_fees,
-            exit_fees=self.broker.exit_fees,
-        ).run(
-            candlestick_type=candlestick_type,
-            volume_type=volume_type,
-            custom_graphs=custom_graphs
-        )
+    def __new__(mcs, name, bases, dct):
+        cls = super().__new__(mcs, name, bases, dct)
+        cls.__init__ = _strategy_init_wrapper(cls.__init__)
+        return cls
 
 
-class BacktestRunParams:
+class Strategy(metaclass=StrategyMeta):
 
-    def __init__(
-            self,
-            enable_logging=False,
-    ):
-        self.enable_logging = enable_logging
+    @property
+    def logger(self) -> logging.Logger:
+        return logger.backtest if self.mode is Mode.BACKTEST else logger.live
 
+    @property
+    def broker(self) -> FuturesBroker:
+        return self._broker
 
-class BacktestPlotParams:
+    @property
+    def candles(self) -> Candles:
+        return self._candles
 
-    def __init__(
-            self,
-            log_scale: bool = False,
-            candlestick_type: Candlestick = Candlestick.LINE,
-            extra_plots: Iterable[CustomGraph] = (),
-    ):
-        self.log_scale = log_scale
-        self.candlestick_type = candlestick_type
-        self.extra_plots = extra_plots
+    @property
+    def mode(self) -> Mode:
+        return Mode.BACKTEST if isinstance(self._broker, BacktestFuturesBroker) else Mode.LIVE
 
+    def __call__(self, candles: Candles):
+        self._candles = candles
+        position = self._broker.position
 
-def __run_bot_from_arg_list(args):
-    strategy: Strategy = args[0]
-    plot_params: BacktestPlotParams = args[2]
+        self.on_new_candle()
+        self.on_in_position(position) if position else self.on_not_in_position()
 
-    strategy.run()
-    strategy.plot(**plot_params.__dict__)
+    def on_new_candle(self):
+        """Called on every candle close."""
+        ...
 
+    def on_in_position(self, position: Position):
+        """Called on every new candle if there is an open position."""
+        ...
 
-def backtest_multiple_strategies(
-        strategies: list[Strategy],
-        plot_params: list[BacktestPlotParams],
-):
-    if len(strategies) != len(plot_params):
-        raise ValueError('Parameter lists has different lengths.')
+    def on_not_in_position(self):
+        """Called on every new candle if there is no open position."""
+        ...
 
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        executor.map(
-            __run_bot_from_arg_list,
-            [(strategy, plot_p) for strategy, plot_p in zip(strategies, plot_params)]
-        )
+    def on_position_open(self, position: Position):
+        """Called on new position open."""
+        ...
+
+    def on_position_close(self, closed_position: Position):
+        """Called on position close."""
+        ...
+
+    def on_balance_change(self, prev_balance: Balance, curr_balance: Balance):
+        """Called on balance change."""
+        ...
+
+    def on_balance_gain(self, prev_balance: Balance, curr_balance: Balance):
+        """Called on balance increase."""
+        ...
+
+    def on_balance_loss(self, prev_balance: Balance, curr_balance: Balance):
+        """Called on balance decrease."""
+        ...
+
+    def on_position_profit(self, prev_balance: Balance, curr_balance: Balance):
+        """Called on position closed in profit."""
+        ...
+
+    def on_position_loss(self, prev_balance: Balance, curr_balance: Balance):
+        """Called on position closed in loss."""
+        ...
+
+    def on_new_orders(self, new_orders: list[Order]):
+        """Called when new order is created."""
+        ...
+
+    def on_cancel_orders(self, canceled_order: list[Order]):
+        """Called when an open order gets canceled."""
+        ...
+
+    def on_filled_orders(self, filled_orders: list[Order]):
+        """Called when an open order gets filled."""
+        ...
