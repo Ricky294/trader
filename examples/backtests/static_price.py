@@ -3,7 +3,7 @@ from datetime import datetime
 from trader.backtest import BacktestFuturesBroker
 
 from trader.core.model import Balance, Position, Order
-from trader.core.strategy import Strategy, Engine
+from trader.core.strategy import Strategy
 from trader.core.const import Side, OrderType, Market
 
 from trader.data.binance import get_store_candles, Interval
@@ -61,8 +61,6 @@ if __name__ == '__main__':
         end=datetime(year=2022, month=1, day=2)
     )
 
-    strategy = StaticPriceStrategy
-
     broker = BacktestFuturesBroker(
         balances=[Balance(time=candles.times[0], asset=quote_currency, available=start_cash)],
         symbols_set_leverage={symbol: 1},
@@ -70,6 +68,6 @@ if __name__ == '__main__':
         taker_fee_rate=0.0004,
     )
 
-    engine = Engine(strategy=strategy, candles=candles, broker=broker)
-    engine.run()
-    engine.plot()
+    strategy = StaticPriceStrategy(candles=candles, broker=broker)
+    strategy.run()
+    strategy.plot()

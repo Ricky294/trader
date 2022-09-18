@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from trader.backtest import BacktestFuturesBroker
-from trader.core.strategy import Strategy, Engine
+from trader.core.strategy import Strategy
 from trader.data.binance import get_store_candles
 
 from trader.core.model import Position, Balance
@@ -31,12 +31,10 @@ if __name__ == '__main__':
         market=Market.FUTURES,
     )
 
-    strategy = EmptyStrategy
-
     broker = BacktestFuturesBroker(
         balances=[Balance(asset='USDT', available=start_cash)],
         symbols_set_leverage={symbol: 1},
     )
 
-    engine = Engine(candles=candles, broker=broker, strategy=strategy)
+    engine = EmptyStrategy(candles=candles, broker=broker)
     execute_measure_performance(engine.run)

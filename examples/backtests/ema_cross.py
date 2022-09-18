@@ -5,12 +5,14 @@ import plotly.graph_objs as go
 from trader.backtest import BacktestFuturesBroker
 
 from trader.core.indicator import MAIndicator
+from trader.core.interface import FuturesBroker
 from trader.core.model import Balance, Order, Position
-from trader.core.strategy import Strategy, Engine
+from trader.core.strategy import Strategy
 from trader.core.const import MA, Side, OrderType, Market
 
 from trader.data.binance import get_store_candles
 from trader.data.db import HDF5CandleStorage
+from trader.data.model import Candles
 
 from trader.trade import cross
 
@@ -61,16 +63,15 @@ if __name__ == '__main__':
         liquidation=False,
     )
 
-    engine = Engine(candles=candles, broker=broker, strategy=MACrossStrategy)
-    engine.run()
-
-    engine.plot(
+    strategy = MACrossStrategy(candles=candles, broker=broker)
+    strategy.run()
+    strategy.plot(
         extra_graphs=[
             GraphWrapper(
                 graph=Graph.CANDLESTICK,
                 graph_object=go.Scattergl(
                     x=candles.pd_open_times,
-                    y=engine.strategy.slow_ma.ma,
+                    y=strategy.slow_ma.ma,
                     name='Slow MA',
                     marker={'color': '#D10000'},
                 ),
@@ -79,7 +80,7 @@ if __name__ == '__main__':
                 graph=Graph.CANDLESTICK,
                 graph_object=go.Scattergl(
                     x=candles.pd_open_times,
-                    y=engine.strategy.fast_ma.ma,
+                    y=strategy.fast_ma.ma,
                     name='Fast MA',
                     marker={'color': '#3EA055'},
                 ),

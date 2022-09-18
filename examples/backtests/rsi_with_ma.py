@@ -15,7 +15,7 @@ from trader.backtest import BacktestFuturesBroker
 
 from trader.core.indicator import MAIndicator, RSIIndicator
 from trader.core.model import Balance, Order, Position
-from trader.core.strategy import Strategy, Engine
+from trader.core.strategy import Strategy
 from trader.core.const import MA, Side, OrderType, Market
 
 from trader.data.binance import get_store_candles
@@ -73,17 +73,17 @@ if __name__ == '__main__':
         liquidation=False,
     )
 
-    engine = Engine(candles=candles, broker=broker, strategy=RSIMAStrategy)
-    engine.run()
+    strategy = RSIMAStrategy(candles=candles, broker=broker)
+    strategy.run()
 
-    engine.plot(
+    strategy.plot(
         side_labels=False,
         price_markers=False,
         extra_graphs=[
             GraphWrapper(
                 graph=Graph.CANDLESTICK,
                 graph_object=go.Scattergl(
-                    y=engine.strategy.ema.ma,
+                    y=strategy.ema.ma,
                     name='EMA',
                     marker={'color': '#D10000'},
                 ),
@@ -91,7 +91,7 @@ if __name__ == '__main__':
             GraphWrapper(
                 graph=Graph.NEW,
                 graph_object=go.Scattergl(
-                    y=engine.strategy.rsi.rsi,
+                    y=strategy.rsi.rsi,
                     name='RSI',
                     marker={'color': '#3EA055'},
                 ),

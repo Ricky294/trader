@@ -3,7 +3,7 @@ from __future__ import annotations
 import plotly.graph_objs as go
 
 from trader.core.const import Side, OrderType
-from trader.core.strategy import Strategy, Engine
+from trader.core.strategy import Strategy
 from trader.data.binance import get_store_candles
 
 from trader.backtest import BacktestFuturesBroker
@@ -24,9 +24,9 @@ class RSIStrategy(Strategy):
         self.rsi_sell_signal = self.rsi_ind.rsi > 70
 
     def on_not_in_position(self):
-        if self.rsi_buy_signal[-1]:
+        if self.rsi_ind.oversold()[-1]:
             self.broker.create_order(Order(symbol=symbol, type=OrderType.MARKET, side=Side.LONG, amount=50.0))
-        elif self.rsi_sell_signal[-1]:
+        elif self.rsi_ind.overbought()[-1]:
             self.broker.create_order(Order(symbol=symbol, type=OrderType.MARKET, side=Side.SELL, amount=50.0))
 
     def on_in_position(self, position: Position):
@@ -38,7 +38,7 @@ if __name__ == '__main__':
     start_cash = 1000
     base_currency = 'BTC'
     quote_currency = 'USDT'
-    symbol = base_currency+quote_currency
+    symbol = base_currency + quote_currency
 
     candles = get_store_candles(
         symbol=symbol,
@@ -51,10 +51,10 @@ if __name__ == '__main__':
         symbols_set_leverage={symbol: 1}
     )
 
-    engine = Engine(candles=candles, broker=broker, strategy=RSIStrategy)
+    strategy = RSIStrategy(candles=candles, broker=broker)
 
-    engine.run()
-    engine.plot(
+    strategy.run()
+    strategy.plot(
         candlestick_type=Candlestick.AUTO,
         volume_type=Volume.AUTO,
         side_labels=False,
@@ -64,17 +64,17 @@ if __name__ == '__main__':
                 graph=Graph.NEW,
                 graph_object=[
                     go.Scattergl(
-                        y=engine.strategy.rsi_ind.rsi,
+                        y=strategy.rsi_ind.rsi,
                         name='RSI',
                         marker={'color': '#a21ddb'},
                     ),
                     go.Scattergl(
-                        y=[engine.strategy.rsi_ind.lower_limit],
+                        y=[strategy.rsi_ind.lower_limit],
                         name='RSI lower limit',
                         marker={'color': '#2a1ddb'},
                     ),
                     go.Scattergl(
-                        y=[engine.strategy.rsi_ind.upper_limit],
+                        y=[strategy.rsi_ind.upper_limit],
                         name='RSI upper limit',
                         marker={'color': '#2a1ddb'},
                     )

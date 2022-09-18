@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from mysecrets import BINANCE_SECRETS_PATH
 from trader.core.const import Side, OrderType
-from trader.core.strategy import Strategy, Engine
+from trader.core.strategy import Strategy
 from trader.data.binance import get_store_candles
 
 from trader.core.model import Position, Order
@@ -40,6 +40,6 @@ if __name__ == '__main__':
         **secret_keys
     )
 
-    engine = Engine(candles=candles, broker=broker, strategy=RSIStrategy)
+    engine = RSIStrategy(candles=candles, broker=broker)
 
     engine.run()
