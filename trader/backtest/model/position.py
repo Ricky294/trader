@@ -1,100 +1,45 @@
 from __future__ import annotations
 
-from trader.core.super_enum import OrderSide
-from trader.core.exception import LiquidationError
+from trader.core.const import Side
 from trader.core.model import Position
-from trader.core.util.trade import calculate_profit
 
 
-class BacktestPosition(Position):
+def calculate_profit(side: Side, price: float, current_price: float, quantity: float, leverage: int):
+    """
+    Calculates position profit.
 
-    def __init__(
-            self,
-            symbol: str,
-            entry_time: float,
-            entry_price: float,
-            side: OrderSide,
-            amount: float,
-            quantity: float,
-            leverage: int,
-    ):
-        super().__init__(
-            symbol=symbol,
-            amount=amount,
-            side=side,
-            leverage=leverage,
-            quantity=quantity,
-            entry_time=entry_time,
-            entry_price=entry_price,
-        )
-        self._profit = .0
+    :examples:
+    >>> calculate_profit(side=Side.LONG, price=100, current_price=200, quantity=.5, leverage=1)
+    50.0
 
-    def liquidation_check(self, low_price: float, high_price: float, balance: float):
-        """
-        Checks if position got liquidated while it is open.
+    >>> calculate_profit(side=Side.SHORT, price=100, current_price=200, quantity=.5, leverage=1)
+    -50.0
 
-        :param low_price: Latest low price.
-        :param high_price: Latest high price.
-        :param balance: Available account balance.
-        :raises LiquidationError: If position loss is greater than the available balance.
-        """
-        if self.closed:
-            return
+    >>> calculate_profit(side=Side.LONG, price=100, current_price=200, quantity=1, leverage=2)
+    200
+    """
 
-        possible_liquidation_price = low_price if self.side == OrderSide.LONG else high_price
+    price_change = current_price - price if side is Side.LONG else price - current_price
 
-        lowest_profit = self._calculate_profit(possible_liquidation_price)
-        is_liquidated = lowest_profit < 0 and abs(lowest_profit) >= balance
-        if is_liquidated:
-            raise LiquidationError(
-                f"Position liquidated! "
-                f"Your remaining balance ({balance}) couldn't cover your position."
-            )
+    return price_change * quantity * leverage
 
-    def update(self, latest_price: float):
-        """Updates profit based on `latest_price`."""
-        self._profit = self._calculate_profit(self.exit_price if self.closed else latest_price)
 
-    def close(self, time: float, price: float):
-        super(BacktestPosition, self).close(time=time, price=price)
-        self.update(price)
+def calculate_position_profit(position: Position, current_price: float):
+    return calculate_profit(
+        side=position.side,
+        price=position.price,
+        quantity=position.quantity,
+        leverage=position.leverage,
+        current_price=current_price,
+    )
 
-    @property
-    def profit(self):
-        """
-        Returns current profit of this position.
 
-        :examples:
-        >>> from trader.backtest.model import BacktestPosition
-        >>> from trader.core.super_enum import OrderSide
-
-        >>> position = BacktestPosition(
-        ... symbol='EXAMPLE',
-        ... amount=100.0,
-        ... side=OrderSide.LONG,
-        ... leverage=1,
-        ... quantity=1,
-        ... entry_time=1640991600,
-        ... entry_price=100)
-
-        >>> position.profit == 0.0
-        True
-
-        >>> position.update(200)
-        >>> position.profit == 100.0
-        True
-
-        >>> position.close(time=1643670000, price=150)
-        >>> position.profit == 50.0
-        True
-        """
-        return self._profit
-
-    def _calculate_profit(self, price: float):
-        return calculate_profit(
-            side=self.side,
-            entry_price=self.entry_price,
-            current_price=price,
-            quantity=self.quantity,
-            leverage=self.leverage,
-        )
+def is_position_liquidated(
+        position: Position,
+        low_price: float,
+        high_price: float,
+        available_balance: float,
+):
+    possible_liquidation_price = low_price if position.side is Side.LONG else high_price
+    profit = calculate_position_profit(position, possible_liquidation_price)
+    return available_balance + position.amount + profit <= 0

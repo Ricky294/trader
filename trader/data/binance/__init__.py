@@ -4,3 +4,4 @@ from .feed import (
     get_store_candles, get_tohlcv_candles, get_first_candle_timestamp,
 )
 from .stream import candle_stream
+from .interval import Interval

@@ -1,7 +1,26 @@
+__all__ = [
+    'TraderError',
+    'AssetError',
+    'BrokerError',
+    'MarketError',
+    'SymbolError',
+    'IntervalError',
+    'SideError',
+    'OrderTypeError',
+    'PositionError',
+    'BalanceError',
+    'LiquidationError',
+    'TimeInForceError',
+    'LeverageError',
+    'InvalidOrder',
+    'InvalidPrice',
+]
+
 """Trader framework core exceptions.
 
 Exceptions:
-    - TraderError - Base exception for all below.
+    - TraderError - Base exception for all the exceptions below.
+    - AssetError - Invalid asset.
     - BrokerError - Invalid broker.
     - SymbolError - Invalid trade symbol.
     - IntervalError - Invalid trade interval.
@@ -10,8 +29,9 @@ Exceptions:
     - PositionError -
     - BalanceError -
     - LiquidationError -
+    - InvalidOrder - 
+    - InvalidPrice -
 """
-from trader.data.super_enum import Market
 
 
 class TraderError(Exception):
@@ -31,45 +51,81 @@ class TraderError(Exception):
         - BalanceError
         - LeverageError
         - LiquidationError
+        - InvalidOrder
+        - InvalidPrice
     """
-    def __init__(self, msg):
-        super().__init__(msg)
+    ...
+
+
+class AssetError(TraderError):
+
+    @classmethod
+    def invalid(cls, asset):
+        return cls(f'Invalid asset: {asset}')
+
+
+class InvalidOrder(TraderError):
+    ...
+
+
+class InvalidPrice(TraderError):
+    ...
+
+
+class TimeInForceError(TraderError):
+    """Exception for invalid/unsupported time in force."""
+
+    @classmethod
+    def invalid(cls, tif):
+        return cls(f'Invalid time in force: {tif}')
 
 
 class BrokerError(TraderError):
     """Exception for invalid/unsupported broker."""
-    def __init__(self, broker: str):
-        super().__init__(f'Invalid broker: {broker}')
+
+    @classmethod
+    def invalid(cls, broker):
+        return cls(f'Invalid broker: {broker}')
 
 
 class MarketError(TraderError):
     """"Exception for invalid trading market."""
-    def __init__(self, market: Market):
-        super(MarketError, self).__init__(f'Invalid market value: {market}')
+
+    @classmethod
+    def invalid(cls, market):
+        return cls(f'Invalid market value: {market}')
 
 
 class SymbolError(TraderError):
     """Exception for invalid trading symbol."""
-    def __init__(self, symbol: str):
-        super().__init__(f'Invalid symbol: {symbol}')
+
+    @classmethod
+    def invalid(cls, symbol):
+        return cls(f'Invalid symbol: {symbol}')
 
 
 class IntervalError(TraderError):
     """Exception for invalid trading interval."""
-    def __init__(self, interval: str):
-        super().__init__(f'Invalid interval: {interval}')
+
+    @classmethod
+    def invalid(cls, interval):
+        return cls(f'Invalid interval: {interval}')
 
 
 class SideError(TraderError):
     """Exception for invalid order side."""
-    def __init__(self, interval: str):
-        super().__init__(f'Invalid order side: {interval}')
+
+    @classmethod
+    def invalid(cls, side):
+        return cls(f'Invalid side: {side}')
 
 
 class OrderTypeError(TraderError):
     """Exception for invalid order type."""
-    def __init__(self, order_type: str):
-        super().__init__(f'Invalid order type: {order_type}')
+
+    @classmethod
+    def invalid(cls, order_type):
+        return cls(f'Invalid order type: {order_type}')
 
 
 class PositionError(TraderError):
@@ -79,8 +135,9 @@ class PositionError(TraderError):
         - position is already opened/closed.
         - unable to create position for some reason (e.g.: unsupported symbol).
     """
-    def __init__(self, msg):
-        super().__init__(msg)
+    @classmethod
+    def no_position_to_close(cls):
+        return cls(f'No position to close!')
 
 
 class BalanceError(TraderError):
@@ -92,14 +149,15 @@ class BalanceError(TraderError):
         - unmatched asset values when using comparison operators on Balance objects
         - unmatched asset values when adding/subtracting from a Balance object.
     """
-    def __init__(self, msg):
-        super().__init__(msg)
+    ...
 
 
 class LeverageError(TraderError):
     """Raised when leverage is less than 1 or over the allowed maximum."""
-    def __init__(self, msg):
-        super().__init__(msg)
+
+    @classmethod
+    def invalid(cls, leverage):
+        return cls(f'Invalid leverage value: {leverage}')
 
 
 class LiquidationError(TraderError):
@@ -112,5 +170,4 @@ class LiquidationError(TraderError):
     It is a forced action. Position closing order filled as a market order,
     which can lead to slippage with negative account balance.
     """
-    def __init__(self, msg):
-        super().__init__(msg)
+    ...

@@ -1,6 +1,8 @@
 # Custom ignores
 
-secrets/
+performance/
+mysecrets/*secrets.json
+secrets/*.json
 
 data
 !trader/data
@@ -10,6 +12,7 @@ log
 logs
 TODO.txt
 
+venv11
 # Created by https://www.toptal.com/developers/gitignore/api/pycharm,python
 # Edit at https://www.toptal.com/developers/gitignore?templates=pycharm,python
 

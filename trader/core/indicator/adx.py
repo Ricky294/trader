@@ -4,15 +4,23 @@ import talib
 from trader.data.model import Candles
 
 from trader.core.indicator import Indicator
-from trader.core.util.vectorized.trade import cross
+from trader.trade import cross
 
 
 class ADXIndicator(Indicator):
-    """Average Directional Movement Index"""
+    """
+    Average Directional Movement Index
 
-    def __init__(self, adx_period=14, volatility_limit=25.0):
+    Momentum Indicator
+    """
+
+    def __init__(self, candles: Candles, adx_period=14):
         self.adx_period = adx_period
-        self.volatility_limit = volatility_limit
+        super().__init__(candles)
+
+    @property
+    def adx(self):
+        return self._current_slice(self._adx)
 
     def __call__(self, candles: Candles):
         """
@@ -23,7 +31,7 @@ class ADXIndicator(Indicator):
         :return: ADXResult - adx
         """
 
-        self.adx = talib.ADX(
+        self._adx = talib.ADX(
             candles.high_prices,
             candles.low_prices,
             candles.close_prices,

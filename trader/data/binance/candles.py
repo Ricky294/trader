@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Any
 
 import numpy as np
+from websocket import WebSocketApp
 
 from trader.data.candle_schema import OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE
 from trader.data.binance import (
@@ -10,8 +11,9 @@ from trader.data.binance import (
     TAKER_BUY_BASE_ASSET_VOLUME, TAKER_BUY_QUOTE_ASSET_VOLUME
 )
 
-from trader.data.super_enum import Market
+from trader.core.const import Market
 from trader.data.model import Candles
+from util.func import any_func
 
 
 class BinanceCandles(Candles):
@@ -47,21 +49,21 @@ class BinanceCandles(Candles):
 
     def start_candle_stream(
             self,
-            on_candle_close_kwargs: Callable[[Candles], dict[str, any]],
-            on_candle_close: Callable[[Candles], any],
-            on_candle: Callable[[dict], any],
+            on_candle_close: Callable[[Candles], Any],
+            on_candle: Callable[[dict], Any],
+            on_exception: Callable[[WebSocketApp, Exception], Any] = any_func,
             log_candles=True
     ):
         candle_stream(
             candles=self,
-            on_candle_close_kwargs=on_candle_close_kwargs,
             on_candle_close=on_candle_close,
             on_candle=on_candle,
+            on_exception=on_exception,
             log_candles=log_candles,
         )
 
     def update(self):
-        latest_open = self.times[-1] + 1
+        latest_open = self.timestamps[-1] + 1
 
         missing_candles = get_candles_as_array(
             symbol=self.symbol,

@@ -1,31 +1,287 @@
 from __future__ import annotations
 
+import copy
+from abc import abstractmethod, ABC
 from datetime import datetime
-from enum import Enum
 
 import numpy as np
-import pandas as pd
 import nputils as npu
+import talib as ta
 
+from trader.data.model import Symbol
+from trader.data.db import CandleStorage, HDF5CandleStorage, NPYCandleStorage
 from trader.data.candle_schema import OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE, VOLUME
-from trader.data.super_enum import Market
-from trader.data.model import ABCCandles
-from trader.data.util import blend_ohlc, to_heikin_ashi, interval_to_seconds
+
+from trader.core.const import Market
+from trader.data.candle_util import blend_ohlc, to_heikin_ashi
+
+from util.interval import interval_to_seconds
+from util.iter_util import SliceIterator
 
 
-class ConfigParam(Enum):
+class BaseCandles(ABC):
+    """
+    Abstract class for storing candle data.
+    """
+
+    __slots__ = 'candles', 'schema', 'symbol', 'interval', 'market', 'tags'
+
+    @staticmethod
+    def __index_name_schema(schema: dict):
+        ret = {}
+        for key, value in schema.items():
+            if isinstance(key, int):
+                ret[key] = value
+            elif isinstance(key, str):
+                ret[value] = key
+            else:
+                raise ValueError(f'Unsupported type: {type(key)}')
+        return ret
+
+    @staticmethod
+    def __name_index_schema(schema: dict):
+        ret = {}
+        for key, value in schema.items():
+            if isinstance(key, int):
+                ret[value] = key
+            elif isinstance(key, str):
+                ret[key] = value
+            else:
+                raise ValueError(f'Unsupported type: {type(key)}')
+        return ret
+
+    @abstractmethod
+    def __init__(
+            self,
+            candles: np.ndarray,
+            symbol: Symbol,
+            interval: str,
+            market: Market,
+            tags: dict[str, str | bool | int | float],
+            schema: tuple[str, ...] | list[str],
+    ):
+        """
+        Initializes `self` object.
+
+        :param candles: Must be a two-dimensional numpy array. Each nested array represents a candle object.
+        :param symbol: Candle symbol (e.g. S&P500, BTCUSDT).
+        :param interval: Candle interval (e.g. '15m', '1h', '1d').
+        :param market: Where candles are from (e.g. 'FUTURES', 'SPOT').
+        :param tags: Additional metadata for this object.
+        :param schema: Array like object, which describes candle schema.
+        :raises ValueError: If candles number of dimension is not exactly 2
+        or if schema length not equals with candle schema length.
+        """
+
+        if candles.ndim != 2:
+            raise ValueError(f'Data must have exactly two dimensions but it has {candles.ndim}!')
+
+        elif len(schema) != candles.shape[1]:
+            raise ValueError(
+                'Different shape for data and schema. '
+                f'Schema defines {len(schema)} values while second dimension of candles data has {candles.shape[1]} values.'
+            )
+
+        self.candles = candles
+        self.schema = schema
+        self.symbol = symbol
+        self.interval = interval
+        self.market = market
+        if tags:
+            self.tags = tags
+        else:
+            self.tags = {}
+
+    def copy_init(
+            self,
+            candles: np.ndarray = None,
+            symbol: str = None,
+            interval: str = None,
+            market: Market = None,
+            tags: dict = None,
+            schema: tuple[str, ...] | list[str] = None,
+    ):
+        """
+        Copy constructor - creates a copy of `self`.
+
+        Creates a new Candles object by copying all attributes from `self`
+        where parameter is None else it copies the parameter.
+
+        :return: new ABCCandles object
+        """
+
+        return type(self)(
+            candles=self.candles if candles is None else candles,
+            symbol=self.symbol if symbol is None else symbol,
+            interval=self.interval if interval is None else interval,
+            market=self.market if market is None else market,
+            schema=self.schema if schema is None else schema,
+            tags={key: val for key, val in self.tags.items()} if tags is None else tags,
+        )
+
+    def pop(self):
+        """
+        Removes the latest candle from this object and returns it.
+
+        :return: latest candle - 1D numpy array
+        """
+        latest_candle: np.ndarray = self.candles[-1]
+        self.candles = self.candles[:-1]
+        return latest_candle
 
     def __str__(self):
-        return str(self.value)
+        return (
+            f'Candles(symbol={self.symbol}, interval={self.interval}, '
+            f'market={self.market}, schema={self.schema}, candle_count={self.shape[0]})'
+        )
+
+    def __iadd__(self, other):
+        self.concatenate(other)
+        return self
+
+    def __add__(self, other):
+        return self.append(other)
+
+    def head(self, n: int):
+        """
+        Creates a new ABCCandles with the first `n` number of candles.
+
+        :param n: Number of candles to include from start.
+        :return: ABCCandles
+        """
+        return self.copy_init(self.candles[:n])
+
+    def tail(self, n: int):
+        """
+        Creates a new ABCCandles with the last `n` number of candles.
+
+        :param n: Number of candles to include to end.
+        :return: ABCCandles
+        """
+        return self.copy_init(self.candles[-n:])
+
+    def save_to_hdf5(self, dir_path: str):
+        storage = HDF5CandleStorage(dir_path=dir_path, symbol=self.symbol.pair, interval=self.interval, market=self.market)
+        storage.append(self.candles)
+
+    def save_to_npy(self, dir_path: str):
+        storage = NPYCandleStorage(dir_path=dir_path, symbol=self.symbol.pair, interval=self.interval, market=self.market)
+        storage.append(self.candles)
+
+    def concatenate(self, other: BaseCandles | np.ndarray, /):
+        """
+        Appends `other` at the end of `self` in place.
+
+        Same as using the '+=' operator (__iadd__).
+
+        Similar method(s):
+            - append
+
+        :param other: Candle object to append at the end of self.
+        :return: None
+        """
+
+        if isinstance(other, BaseCandles):
+            self.candles = np.vstack((self.candles, other.candles))
+        elif isinstance(other, np.ndarray):
+            self.candles = np.vstack((self.candles, other))
+        else:
+            raise TypeError(f'Unable to append data type: {type(other)}.')
+
+    def append(self, other: BaseCandles | np.ndarray, /):
+        """
+        Returns a new Candles object by appending `other` at the end of `self`.
+
+        Same as using the '+' operator (__add__).
+
+        Similar method(s):
+            - concatenate
+
+        :param other: Candle object to append at the end of self.
+        :return: Candles object
+        """
+
+        this = copy.deepcopy(self)
+        if isinstance(other, BaseCandles):
+            this.candles = np.vstack((self.candles, other.candles))
+        elif isinstance(other, np.ndarray):
+            this.candles = np.vstack((self.candles, other))
+        else:
+            raise ValueError(f'Unable to append data type: {type(other)}.')
+        return this
+
+    def to_dict(self):
+        return {schema: self.series(schema) for schema in self.schema}
+
+    def series_to_index(self, ser: str, /):
+        return self.schema.index(ser)
+
+    def series(self, item: str | tuple[str] | list[str], /) -> np.ndarray:
+        """
+        Returns 1 or 2 dimensional numpy array based on the type of `item`:
+            - 1D - Series = int | str | OHLCV
+            - 2D - Iterable[Series] = Iterable[int | str | OHLCV]
+
+        :param item: Filter for Candle series (series to keep in numpy array).
+        :return: numpy array
+        """
+
+        if isinstance(item, str):
+            return self.candles.T[self.series_to_index(item)]
+        else:
+            indexes = [self.series_to_index(e) for e in item]
+            candle_series = np.vstack([self.candles.T[index] for index in indexes])
+            return candle_series
+
+    def __getitem__(self, index: int | slice):
+        """
+        Filters on candles by a single index or an index slice.
+
+        Note: If you would like to filter on series instead of candles, use series method.
+
+        :param index: Defines which candles to include in the new Candles object
+        :return: new Candles object
+        """
+
+        if isinstance(index, slice):
+            # TODO:
+            # Not that straight forward.
+            # If item step is not exactly 1, then interval is different and data aggregation is needed.
+            return self.copy_init(self.candles[index.start:index.stop:index.step])
+
+        return self.copy_init(self.candles[index])
+
+    @property
+    def last_index(self):
+        return len(self) - 1
+
+    def __len__(self):
+        return len(self.candles)
+
+    def __iter__(self):
+        return self.candles.__iter__()
+
+    def slice_iterator(self, start_index=0):
+        return SliceIterator(copy.deepcopy(self), start_index=start_index)
+
+    def save(self, storage: CandleStorage):
+        storage.append(self.candles)
+
+    @property
+    def last_candle(self) -> np.ndarray:
+        return self.candles[-1]
+
+    @property
+    def size(self):
+        """Number of elements in candles array."""
+        return self.candles.size
+
+    @property
+    def shape(self):
+        return self.candles.shape
 
 
-class Orientation(ConfigParam):
-    AUTO = 'AUTO'
-    COLUMNAR = 'COLUMNAR'
-    RECORD = 'RECORD'
-
-
-class Candles(ABCCandles):
+class Candles(BaseCandles):
     """
     Suitable to store TOHLCV candles.
 
@@ -41,19 +297,18 @@ class Candles(ABCCandles):
     def __init__(
             self,
             candles: np.ndarray,
-            symbol: str,
+            symbol: Symbol,
             interval: str,
             market: Market,
-            meta: dict = None,
+            tags: dict = None,
             schema=(OPEN_TIME, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE, VOLUME),
-            orientation=Orientation.AUTO,
     ):
         super(Candles, self).__init__(
             candles=candles,
             symbol=symbol,
             interval=interval,
             market=market,
-            meta=meta,
+            tags=tags,
             schema=schema,
         )
 
@@ -115,7 +370,7 @@ class Candles(ABCCandles):
             )
 
         dim2_size = int(dim2_size)
-        dim1_size = int(self.times.size / dim2_size)
+        dim1_size = int(self.timestamps.size / dim2_size)
 
         def reduce_reshape(arr: np.ndarray):
             return npu.reduce_reshape(arr, dim2_size)
@@ -146,9 +401,9 @@ class Candles(ABCCandles):
     @property
     def patterns(self):
         self._ohlc_not_none_check()
-        from trader.data.model import TALibCandlePatterns
+        from trader.data.model import CandlePatterns
 
-        return TALibCandlePatterns(self.open_prices, self.high_prices, self.low_prices, self.close_prices)
+        return CandlePatterns(self.open_prices, self.high_prices, self.low_prices, self.close_prices)
 
     def bullish_fractals(self):
         """
@@ -243,7 +498,7 @@ class Candles(ABCCandles):
             for name in self.schema
         ]).T
 
-        candles = self.copy_init(candles=data, meta=dict(self.meta, **{"normalized": True}))
+        candles = self.copy_init(candles=data, tags=dict(self.tags, **{"normalized": True}))
         return candles
 
     def to_heikin_ashi(self):
@@ -271,7 +526,7 @@ class Candles(ABCCandles):
         arrays = [ohlc[name] if name in ohlc else self.series(name) for name in self.schema]
         data = np.vstack(arrays).T
 
-        candles = self.copy_init(data, meta=dict(self.meta, **{"heikin_ashi": True}))
+        candles = self.copy_init(data, tags=dict(self.tags, **{"heikin_ashi": True}))
         return candles
 
     def blend(self, period=2) -> Candles:
@@ -289,7 +544,7 @@ class Candles(ABCCandles):
         arrays = [ohlc[name] if name in ohlc else self.series(name) for name in self.schema]
         data = np.vstack(arrays).T
 
-        candles = self.copy_init(data, meta=dict(self.meta, **{"blended": True}))
+        candles = self.copy_init(data, tags=dict(self.tags, **{"blended": True}))
         return candles
 
     def average(self, *series: str) -> np.ndarray:
@@ -353,24 +608,42 @@ class Candles(ABCCandles):
         if isinstance(end, datetime):
             end = end.timestamp()
 
-        filtered_candles = self.candles[(self.times >= start) & (self.times <= end)]
+        filtered_candles = self.candles[(self.timestamps >= start) & (self.timestamps <= end)]
         return self.copy_init(filtered_candles)
 
     @property
-    def times(self) -> np.ndarray | None:
+    def latest_ohlc(self) -> tuple[float, float, float, float]:
+        """
+        Returns a tuple containing the latest open, high, low, and close prices.
+
+        Returns:
+            tuple[float, float, float, float]: A tuple in the format (open, high, low, close).
+        """
+        return self.latest_open_price, self.latest_high_price, self.latest_low_price, self.latest_close_price
+
+    @property
+    def timestamps(self) -> np.ndarray | None:
         try:
             return self.series(OPEN_TIME)
         except ValueError:
             return None
 
     @property
-    def pd_open_times(self):
-        return pd.to_datetime(self.times, unit="s")
+    def times(self) -> np.ndarray[datetime]:
+        if self.timestamps is not None:
+            return np.array([datetime.fromtimestamp(ts) for ts in self.timestamps])
 
     @property
-    def latest_time(self):
+    def latest_time(self) -> datetime | None:
         try:
-            return int(self.times[-1])
+            return datetime.fromtimestamp(self.timestamps[-1])
+        except TypeError:
+            return None
+
+    @property
+    def latest_timestamp(self) -> float | None:
+        try:
+            return self.timestamps[-1]
         except TypeError:
             return None
 
@@ -382,9 +655,9 @@ class Candles(ABCCandles):
             return None
 
     @property
-    def latest_open_price(self):
+    def latest_open_price(self) -> float | None:
         try:
-            return float(self.open_prices[-1])
+            return self.open_prices[-1]
         except TypeError:
             return None
 
@@ -396,9 +669,9 @@ class Candles(ABCCandles):
             return None
 
     @property
-    def latest_high_price(self):
+    def latest_high_price(self) -> float | None:
         try:
-            return float(self.high_prices[-1])
+            return self.high_prices[-1]
         except TypeError:
             return None
 
@@ -410,9 +683,9 @@ class Candles(ABCCandles):
             return None
 
     @property
-    def latest_low_price(self):
+    def latest_low_price(self) -> float | None:
         try:
-            return float(self.low_prices[-1])
+            return self.low_prices[-1]
         except TypeError:
             return None
 
@@ -424,9 +697,9 @@ class Candles(ABCCandles):
             return None
 
     @property
-    def latest_close_price(self):
+    def latest_close_price(self) -> float | None:
         try:
-            return float(self.close_prices[-1])
+            return self.close_prices[-1]
         except TypeError:
             return None
 
@@ -438,8 +711,251 @@ class Candles(ABCCandles):
             return None
 
     @property
-    def latest_volume(self):
+    def latest_volume(self) -> float | None:
         try:
-            return float(self.volumes[-1])
+            return self.volumes[-1]
         except TypeError:
             return None
+
+
+class CandlePatterns:
+
+    def __init__(self, open: np.ndarray, high: np.ndarray, low: np.ndarray, close: np.ndarray):
+        self.ohlc = open, high, low, close
+        self.open = open
+        self.high = high
+        self.low = low
+        self.close = close
+
+    def bullish_candles(self) -> np.ndarray:
+        """
+        Returns True where `close` price is greater than `open` price.
+
+        :return: bool numpy array
+        """
+        return self.close > self.open
+
+    def bearish_candles(self) -> np.ndarray:
+        """
+        Returns True where `close` price is less than `open` price.
+
+        :return: bool numpy array
+        """
+        return self.close < self.open
+
+    def consecutive_bullish_candles(self, n: int):
+        """
+        Returns True where `close` price is greater than `open` price
+        after at least `n` consecutive times.
+
+        :param n: True, where at least n number of consecutive candles are bullish.
+        :return: bool numpy array
+        """
+        is_bullish = self.bullish_candles()
+        bullish_win = np.lib.stride_tricks.sliding_window_view(is_bullish, n)
+
+        return np.concatenate((np.full(n - 1, False), np.all(bullish_win, axis=-1)))
+
+    def consecutive_bearish_candles(self, n: int):
+        """
+        Returns True where `close` price is less than `open` price
+        after at least `n` consecutive times.
+
+        :param n: True, where at least n number of consecutive candles are bearish.
+        :return: bool numpy array
+        """
+        is_bullish = self.bearish_candles()
+        bullish_win = np.lib.stride_tricks.sliding_window_view(is_bullish, n)
+
+        return np.concatenate((np.full(n - 1, False), np.all(bullish_win, axis=-1)))
+
+    # ---- Candlestick patterns ---- #
+    def two_crows(self) -> np.ndarray:
+        return ta.CDL2CROWS(*self.ohlc)
+
+    def three_line_strike(self) -> np.ndarray:
+        return ta.CDL3LINESTRIKE(*self.ohlc)
+
+    def three_black_crows(self) -> np.ndarray:
+        return ta.CDL3BLACKCROWS(*self.ohlc)
+
+    def three_inside(self) -> np.ndarray:
+        return ta.CDL3INSIDE(*self.ohlc)
+
+    def three_outside_up_down(self) -> np.ndarray:
+        return ta.CDL3OUTSIDE(*self.ohlc)
+
+    def three_stars_in_south(self) -> np.ndarray:
+        return ta.CDL3STARSINSOUTH(*self.ohlc)
+
+    def three_white_soldiers(self) -> np.ndarray:
+        return ta.CDL3WHITESOLDIERS(*self.ohlc)
+
+    def abandoned_baby(self, penetration=0.3) -> np.ndarray:
+        return ta.CDLABANDONEDBABY(*self.ohlc, penetration=penetration)
+
+    def advance_block(self) -> np.ndarray:
+        return ta.CDLADVANCEBLOCK(*self.ohlc)
+
+    def breakaway(self) -> np.ndarray:
+        return ta.CDLBREAKAWAY(*self.ohlc)
+
+    def closing_marubozu(self) -> np.ndarray:
+        return ta.CDLCLOSINGMARUBOZU(*self.ohlc)
+
+    def belt_hold(self) -> np.ndarray:
+        return ta.CDLBELTHOLD(*self.ohlc)
+
+    def conceal_baby_swallow(self) -> np.ndarray:
+        return ta.CDLCONCEALBABYSWALL(*self.ohlc)
+
+    def counter_attack(self) -> np.ndarray:
+        return ta.CDLCOUNTERATTACK(*self.ohlc)
+
+    def dark_cloud_cover(self, penetration=0.5) -> np.ndarray:
+        return ta.CDLDARKCLOUDCOVER(*self.ohlc, penetration=penetration)
+
+    def doji(self) -> np.ndarray:
+        return ta.CDLDOJI(*self.ohlc)
+
+    def doji_star(self) -> np.ndarray:
+        return ta.CDLDOJISTAR(*self.ohlc)
+
+    def dragonfly_doji(self) -> np.ndarray:
+        return ta.CDLDRAGONFLYDOJI(*self.ohlc)
+
+    def engulfing(self) -> np.ndarray:
+        return ta.CDLENGULFING(*self.ohlc)
+
+    def evening_doji_star(self, penetration=0.3) -> np.ndarray:
+        return ta.CDLEVENINGDOJISTAR(*self.ohlc, penetration=penetration)
+
+    def evening_star(self, penetration=0.3) -> np.ndarray:
+        return ta.CDLEVENINGSTAR(*self.ohlc, penetration=penetration)
+
+    def gap_side_side_white(self) -> np.ndarray:
+        return ta.CDLGAPSIDESIDEWHITE(*self.ohlc)
+
+    def gravestone_doji(self) -> np.ndarray:
+        return ta.CDLGRAVESTONEDOJI(*self.ohlc)
+
+    def hammer(self) -> np.ndarray:
+        return ta.CDLHAMMER(*self.ohlc)
+
+    def hanging_man(self) -> np.ndarray:
+        return ta.CDLHANGINGMAN(*self.ohlc)
+
+    def harami(self) -> np.ndarray:
+        return ta.CDLHARAMI(*self.ohlc)
+
+    def harami_cross(self) -> np.ndarray:
+        return ta.CDLHARAMICROSS(*self.ohlc)
+
+    def high_wave(self) -> np.ndarray:
+        return ta.CDLHIGHWAVE(*self.ohlc)
+
+    def hikkake(self) -> np.ndarray:
+        return ta.CDLHIKKAKE(*self.ohlc)
+
+    def hikakke_modified(self) -> np.ndarray:
+        return ta.CDLHIKKAKEMOD(*self.ohlc)
+
+    def homing_pigeon(self) -> np.ndarray:
+        return ta.CDLHOMINGPIGEON(*self.ohlc)
+
+    def identical_three_crows(self) -> np.ndarray:
+        return ta.CDLIDENTICAL3CROWS(*self.ohlc)
+
+    def in_neck(self) -> np.ndarray:
+        return ta.CDLINNECK(*self.ohlc)
+
+    def inverted_hammer(self) -> np.ndarray:
+        return ta.CDLINVERTEDHAMMER(*self.ohlc)
+
+    def kicking(self) -> np.ndarray:
+        return ta.CDLKICKING(*self.ohlc)
+
+    def kicking_by_length(self) -> np.ndarray:
+        return ta.CDLKICKINGBYLENGTH(*self.ohlc)
+
+    def ladder_bottom(self) -> np.ndarray:
+        return ta.CDLLADDERBOTTOM(*self.ohlc)
+
+    def long_legged_doji(self) -> np.ndarray:
+        return ta.CDLLONGLEGGEDDOJI(*self.ohlc)
+
+    def long_line(self) -> np.ndarray:
+        return ta.CDLLONGLINE(*self.ohlc)
+
+    def marubozu(self) -> np.ndarray:
+        return ta.CDLMARUBOZU(*self.ohlc)
+
+    def matching_low(self) -> np.ndarray:
+        return ta.CDLMATCHINGLOW(*self.ohlc)
+
+    def mat_hold(self, penetration=0.5) -> np.ndarray:
+        return ta.CDLMATHOLD(*self.ohlc, penetration=penetration)
+
+    def morning_doji_star(self, penetration=0.3) -> np.ndarray:
+        return ta.CDLMORNINGDOJISTAR(*self.ohlc, penetration=penetration)
+
+    def morning_star(self, penetration=0.3) -> np.ndarray:
+        return ta.CDLMORNINGSTAR(*self.ohlc, penetration=penetration)
+
+    def on_neck(self) -> np.ndarray:
+        return ta.CDLONNECK(*self.ohlc)
+
+    def piercing(self) -> np.ndarray:
+        return ta.CDLPIERCING(*self.ohlc)
+
+    def rickshaw_man(self) -> np.ndarray:
+        return ta.CDLRICKSHAWMAN(*self.ohlc)
+
+    def rising_falling_three_methods(self) -> np.ndarray:
+        return ta.CDLRISEFALL3METHODS(*self.ohlc)
+
+    def separating_lines(self) -> np.ndarray:
+        return ta.CDLSEPARATINGLINES(*self.ohlc)
+
+    def shooting_star(self) -> np.ndarray:
+        return ta.CDLSHOOTINGSTAR(*self.ohlc)
+
+    def short_line(self) -> np.ndarray:
+        return ta.CDLSHORTLINE(*self.ohlc)
+
+    def spinning_top(self) -> np.ndarray:
+        return ta.CDLSPINNINGTOP(*self.ohlc)
+
+    def stalled_pattern(self) -> np.ndarray:
+        return ta.CDLSTALLEDPATTERN(*self.ohlc)
+
+    def stick_sandwich(self) -> np.ndarray:
+        return ta.CDLSTICKSANDWICH(*self.ohlc)
+
+    def takuri(self) -> np.ndarray:
+        return ta.CDLTAKURI(*self.ohlc)
+
+    def tasuki_gap(self) -> np.ndarray:
+        return ta.CDLTASUKIGAP(*self.ohlc)
+
+    def thrusting(self) -> np.ndarray:
+        return ta.CDLTHRUSTING(*self.ohlc)
+
+    def tristar(self) -> np.ndarray:
+        return ta.CDLTRISTAR(*self.ohlc)
+
+    def unique_three_river(self) -> np.ndarray:
+        return ta.CDLUNIQUE3RIVER(*self.ohlc)
+
+    def upside_gap_two_crows(self) -> np.ndarray:
+        return ta.CDLUPSIDEGAP2CROWS(*self.ohlc)
+
+    def upside_downside_gap_three_methods(self) -> np.ndarray:
+        return ta.CDLXSIDEGAP3METHODS(*self.ohlc)
+
+
+if __name__ == "__main__":
+    import doctest
+
+    flags = doctest.REPORT_NDIFF | doctest.FAIL_FAST
+    doctest.testmod(verbose=True)

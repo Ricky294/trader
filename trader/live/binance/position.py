@@ -1,106 +1,67 @@
 from __future__ import annotations
 
-from binance.client import Client
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
 
-from trader.core.exception import PositionError
-from trader.core.super_enum import OrderSide, OrderType, TimeInForce
+from trader.core.const import Side
 from trader.core.model import Position
-from trader.core.util.common import round_down
+from util.format_util import normalize_data_types, snake_case
 
 
+@dataclass(frozen=True)
 class BinancePosition(Position):
 
-    def __init__(
-            self,
-            data: dict,
+    initial_margin: float
+    maint_margin: float
+    open_order_initial_margin: float
+    isolated: bool
+    max_notional: float
+    position_side: str
+    notional: float
+    isolated_wallet: float
+    bid_notional: float
+    ask_notional: float
+
+    @classmethod
+    def from_dict(
+            cls,
+            pos: dict[str, Any],
     ):
-        quantity = float(data['positionAmt'])
-        if quantity == .0:
-            raise PositionError(f'No open {data["symbol"]!r} position.')
+        pos = normalize_data_types(pos)
+        pos = {snake_case(key): value for key, value in pos.items()}
 
-        super().__init__(
-            symbol=data['symbol'],
-            entry_time=data['updateTime'],
-            entry_price=float(data['entryPrice']),
-            amount=float(data['positionInitialMargin']),
-            quantity=quantity,
-            side=OrderSide.LONG if quantity > .0 else OrderSide.SHORT,
-            leverage=int(data['leverage']),
+        return cls(
+            fee=.0,
+            state=0,
+            create_time=datetime.fromtimestamp(pos.pop('update_time') / 1000),
+            amount=pos.pop('position_initial_margin'),
+            side=Side.LONG if pos['position_amt'] > .0 else Side.SHORT,
+            quantity=abs(pos.pop('position_amt')),
+            price=pos.pop('entry_price'),
+            profit=pos.pop('unrealized_profit'),
+            **pos,
         )
-        self.__profit = float(data['unrealizedProfit'])
-
-    def profit(self) -> float:
-        return self.__profit
 
 
-def stop_loss_market(
-        client: Client,
-        position: BinancePosition,
-        stop_price: float,
-        price_precision: int,
-):
-    stop_price = round_down(stop_price, price_precision)
-    side = position.side.opposite().to_buy_sell()
+if __name__ == "__main__":
+    BinancePosition.from_dict({
+        "symbol": "BTCUSDT",
+        "initialMargin": "0",
+        "maintMargin": "0",
+        "unrealizedProfit": "0.00000000",
+        "positionInitialMargin": "0",
+        "openOrderInitialMargin": "0",
+        "leverage": "100",
+        "isolated": "true",
+        "entryPrice": "0.00000",
+        "maxNotional": "250000",
+        "bidNotional": "0",
+        "askNotional": "0",
+        "positionSide": "BOTH",
+        "positionAmt": "0",
+        "notional": "83.9089788",
+        "isolatedWallet": "8.3932604",
+        "updateTime": 0
+    })
 
-    client.futures_create_order(
-        symbol=position.symbol,
-        type='STOP_MARKET',
-        side=side,
-        stopPrice=stop_price,
-        closePosition='true',
-    )
-
-
-def take_profit_market(
-        client: Client,
-        position: BinancePosition,
-        stop_price: float,
-        price_precision: int,
-):
-    stop_price = round_down(stop_price, price_precision)
-
-    side = position.side.opposite().to_buy_sell()
-
-    client.futures_create_order(
-        symbol=position.symbol,
-        type='TAKE_PROFIT_MARKET',
-        side=side,
-        stopPrice=stop_price,
-        closePosition='true',
-    )
-
-
-def close_position_limit(
-        client: Client,
-        position: BinancePosition,
-        price: float,
-        price_precision: int,
-        time_in_force=TimeInForce.GTC,
-):
-    price = round_down(price, price_precision)
-    side = position.side.opposite().to_buy_sell()
-    time_in_force = str(time_in_force)
-
-    client.futures_create_order(
-        symbol=position.symbol,
-        type=OrderType.LIMIT,
-        side=side,
-        quantity=abs(position.quantity),
-        price=price,
-        reduceOnly='true',
-        timeInForce=str(time_in_force),
-    )
-
-
-def close_position_market(
-        client: Client,
-        position: BinancePosition,
-):
-    side = position.side.opposite().to_buy_sell()
-    client.futures_create_order(
-        symbol=position.symbol,
-        type=OrderType.MARKET,
-        side=side,
-        quantity=abs(position.quantity),
-        reduceOnly='true',
-    )

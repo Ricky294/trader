@@ -1,139 +1,61 @@
-import pandas as pd
+from __future__ import annotations
 
-from trader.config import BALANCE_PRECISION
+from dataclasses import dataclass, field
+from itertools import count
+
 from trader.core.exception import BalanceError
 from trader.data.model import Model
+from trader.settings import Settings
+import util.format_util as fmt
 
 
+instance_counter = count(1)
+
+
+@dataclass(frozen=True, kw_only=True)
 class Balance(Model):
+    __count: int = field(default_factory=lambda: next(instance_counter), init=False, repr=False)
 
-    def __init__(self, available: float, asset: str, time: float = None):
-        super().__init__(time)
-        self.available = float(available)
-        self.asset = asset
+    asset: str
+    total: float
+    available: float
 
-    def value_str(self):
-        return f'{self.available:.{BALANCE_PRECISION}f} {self.asset}'
+    def simple_repr(self) -> str:
+        return f'{fmt.num(self.total, prec=Settings.precision_balance)} {self.asset}'
 
-    @property
-    def pd_time(self):
-        return pd.to_datetime(self.time, unit='s')
-
-    def _asset_check(self, other):
-        if other.asset != self.asset:
-            raise BalanceError(
-                f'Unable to operate on different assets: '
-                f'self ({self.asset!r}) != other ({other.asset!r})'
-            )
-
-    def _type_check(self, other):
+    def _validate(self, other):
         if not isinstance(other, Balance):
-            raise BalanceError(f'Type of "other" is: {type(other)}, not Balance.')
+            raise TypeError(f'Compared value must be an instance of Balance, not {type(other).__name__}')
 
-    def __gt__(self, other):
-        """
-        True if `self` and `other` is of type Balance
-        and `self.free` is greater than `other.free`
-        and `self.asset` equals with `other.asset`.
-
-        :param other: Balance object with the same asset type as self.
-        :return: bool
-        :raises BalanceError: If other is not type of Balance or if the asset value is different.
-
-        :example:
-        >>> Balance(100, 'USD') > Balance(100, 'USD')
-        False
-
-        >>> Balance(200, 'USD') > Balance(100, 'USD')
-        True
-
-        >>> Balance(100, 'XYZ') > Balance(100, 'USD')
-        Traceback (most recent call last):
-        ...
-        trader.core.exception.BalanceError: Unable to operate on different assets: self ('XYZ') != other ('USD')
-        """
-        self._type_check(other)
-        self._asset_check(other)
-
-        return self.available > other.available
-
-    def __ge__(self, other):
-        """
-        True if `self` and `other` is of type Balance
-        and `self.free` is greater than or equal to `other.free`
-        and `self.asset` equals with `other.asset`.
-
-        :param other: Balance object with the same asset type as self.
-        :return: bool
-        :raises BalanceError: If other is not type of Balance or if the asset value is different.
-
-        :example:
-        >>> Balance(100, 'USD') >= Balance(100, 'USD')
-        True
-
-        >>> Balance(200, 'USD') >= Balance(100, 'USD')
-        True
-
-        >>> Balance(100, 'XYZ') >= Balance(100, 'USD')
-        Traceback (most recent call last):
-        ...
-        trader.core.exception.BalanceError: Unable to operate on different assets: self ('XYZ') != other ('USD')
-        """
-        self._type_check(other)
-        self._asset_check(other)
-
-        return self.available >= other.available
+        if self.asset != other.asset:
+            raise BalanceError(f'Cannot compare different asset balances: {self.asset!r} vs {other.asset!r}')
 
     def __lt__(self, other):
-        """
-        True if `self` and `other` is of type Balance
-        and `self.free` is less than `other.free`
-        and `self.asset` equals with `other.asset`.
+        self._validate(other)
+        return self.total < other.total
 
-        :param other: Balance object with the same asset type as self.
-        :return: bool
-        :raises BalanceError: If other is not type of Balance or if the asset value is different.
-
-        :example:
-        >>> Balance(100, 'USD') < Balance(100, 'USD')
-        False
-
-        >>> Balance(200, 'USD') < Balance(100, 'USD')
-        False
-
-        >>> Balance(100, 'XYZ') < Balance(100, 'USD')
-        Traceback (most recent call last):
-        ...
-        trader.core.exception.BalanceError: Unable to operate on different assets: self ('XYZ') != other ('USD')
-        """
-        self._type_check(other)
-        self._asset_check(other)
-
-        return self.available < other.available
+    def __gt__(self, other):
+        self._validate(other)
+        return self.total > other.total
 
     def __le__(self, other):
-        """
-        True if `self` and `other` is of type Balance
-        and `self.free` is less than or equal to `other.free`
-        and `self.asset` equals with `other.asset`.
+        self._validate(other)
+        return self.total <= other.total
 
-        :param other: Balance object with the same asset type as self.
-        :return: bool
-        :raises BalanceError: If other is not type of Balance or if the asset value is different.
+    def __ge__(self, other):
+        self._validate(other)
+        return self.total >= other.total
 
-        :example:
-        >>> Balance(100, 'USD') <= Balance(100, 'USD')
-        True
+    def __eq__(self, other):
+        self._validate(other)
+        return self.total == other.total and self.available == other.available
 
-        >>> Balance(200, 'USD') <= Balance(100, 'USD')
-        False
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
-        >>> Balance(100, 'XYZ') <= Balance(100, 'USD')
-        Traceback (most recent call last):
-        ...
-        trader.core.exception.BalanceError: Unable to operate on different assets: self ('XYZ') != other ('USD')
-        """
-        self._type_check(other)
-        self._asset_check(other)
 
-        return self.available <= other.available
+if __name__ == "__main__":
+    import doctest
+
+    flags = doctest.REPORT_NDIFF | doctest.FAIL_FAST
+    doctest.testmod(verbose=True)

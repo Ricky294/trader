@@ -1,19 +1,25 @@
+import numpy as np
 import talib
 
 from trader.data.model import Candles
 
-from trader.core.super_enum import MA
+from trader.core.const import MA
 from trader.core.indicator import Indicator
-from trader.core.util.vectorized.trade import cross
+from trader.trade import cross
 
 
 class STOCHIndicator(Indicator):
-    """Stochastic"""
+    """
+    Stochastic - STOCH
+
+    Momentum Indicator
+    """
 
     color = {"k": "#", "d": "#"}
 
     def __init__(
             self,
+            candles: Candles,
             upper_limit=80.0,
             lower_limit=20.0,
             fast_k_period=5,
@@ -39,6 +45,17 @@ class STOCHIndicator(Indicator):
         self.slow_k_ma = slow_k_ma
         self.slow_d_period = slow_d_period
         self.slow_d_ma = slow_d_ma
+        super().__init__(candles)
+
+    @property
+    def k(self):
+        """%K (fast) line"""
+        return self._current_slice(self._k)
+
+    @property
+    def d(self):
+        """%D (slow) line"""
+        return self._current_slice(self._d)
 
     def __call__(self, candles: Candles):
         """
@@ -50,7 +67,7 @@ class STOCHIndicator(Indicator):
 
         :return: STOCHResult - k, d
         """
-        self.k, self.d = talib.STOCH(
+        self._k, self._d = talib.STOCH(
             candles.high_prices,
             candles.low_prices,
             candles.close_prices,
@@ -61,7 +78,7 @@ class STOCHIndicator(Indicator):
             slowd_matype=int(self.slow_d_ma),
         )
 
-    def above_upper_limit(self):
+    def above_upper_limit(self) -> np.ndarray:
         """
         True where both %K and %D line is above upper limit.
 
@@ -71,7 +88,7 @@ class STOCHIndicator(Indicator):
         """
         return self.fast_line_above_upper_limit() & self.slow_line_above_upper_limit()
 
-    def below_lower_limit(self):
+    def below_lower_limit(self) -> np.ndarray:
         """
         True where both %K and %D line is below lower limit.
 
@@ -81,7 +98,7 @@ class STOCHIndicator(Indicator):
         """
         return self.fast_line_below_lower_limit() & self.slow_line_below_lower_limit()
 
-    def fast_line_above_upper_limit(self):
+    def fast_line_above_upper_limit(self) -> np.ndarray:
         """
         True where %K line is above upper limit.
 
@@ -91,7 +108,7 @@ class STOCHIndicator(Indicator):
         """
         return self.k > self.upper_limit
 
-    def slow_line_above_upper_limit(self):
+    def slow_line_above_upper_limit(self) -> np.ndarray:
         """
         True where %D line is above upper limit.
 
@@ -101,7 +118,7 @@ class STOCHIndicator(Indicator):
         """
         return self.d > self.upper_limit
 
-    def fast_line_below_lower_limit(self):
+    def fast_line_below_lower_limit(self) -> np.ndarray:
         """
         True where %K line is below lower limit.
 
@@ -111,7 +128,7 @@ class STOCHIndicator(Indicator):
         """
         return self.k < self.lower_limit
 
-    def slow_line_below_lower_limit(self):
+    def slow_line_below_lower_limit(self) -> np.ndarray:
         """
         True where %D line is below lower limit.
 
@@ -121,7 +138,7 @@ class STOCHIndicator(Indicator):
         """
         return self.d < self.lower_limit
 
-    def bullish_cross(self):
+    def bullish_cross(self) -> np.ndarray:
         """
         True where %K crosses above %D.
 
@@ -131,7 +148,7 @@ class STOCHIndicator(Indicator):
         """
         return cross(self.k > self.d)
 
-    def bearish_cross(self):
+    def bearish_cross(self) -> np.ndarray:
         """
         True where %K crosses below %D.
 
@@ -141,7 +158,7 @@ class STOCHIndicator(Indicator):
         """
         return cross(self.k < self.d)
 
-    def bullish_cross_below_limit(self):
+    def bullish_cross_below_limit(self) -> np.ndarray:
         """
         True where %K crosses above %D below lower limit.
 
@@ -151,7 +168,7 @@ class STOCHIndicator(Indicator):
         """
         return self.bullish_cross() & (self.k < self.lower_limit)
 
-    def bearish_cross_above_limit(self):
+    def bearish_cross_above_limit(self) -> np.ndarray:
         """
         True where %K crosses below %D above lower limit.
 

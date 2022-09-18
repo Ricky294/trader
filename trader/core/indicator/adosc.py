@@ -5,14 +5,23 @@ from trader.core.indicator import Indicator
 
 
 class ChaikinOscillator(Indicator):
-    """Chaikin A/D Oscillator"""
+    """
+    Chaikin A/D Oscillator
 
-    def __init__(self, fast_period=3, slow_period=10):
+    Volume Indicator
+    """
+
+    def __init__(self, candles: Candles, fast_period=3, slow_period=10):
         self.fast_period = fast_period
         self.slow_period = slow_period
+        super().__init__(candles)
+
+    @property
+    def adosc(self):
+        return self._current_slice(self._adosc)
 
     def __call__(self, candles: Candles):
-        self.adosc = talib.ADOSC(
+        self._adosc = talib.ADOSC(
             candles.high_prices,
             candles.low_prices,
             candles.close_prices,

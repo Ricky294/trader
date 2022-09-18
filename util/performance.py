@@ -1,23 +1,29 @@
 import cProfile
-import os.path
 import pstats
-import re
 from datetime import datetime
 from typing import Callable
 
+from util.file_util import split_path, make_dirs
 
-def execute_measure_performance(func: Callable):
+
+def measure_performance(
+        func: Callable,
+        file_name=f"performance/{datetime.now().strftime('%Y_%m_%d_%H_%M_%S_%f')}",
+        sort_by: str | pstats.SortKey | tuple[str | pstats.SortKey] = 'tottime',
+        *func_args,
+        **func_kwargs
+):
     profiler = cProfile.Profile()
+
     profiler.enable()
-
-    func()
-
+    func(*func_args, **func_kwargs)
     profiler.disable()
-    stats = pstats.Stats(profiler).sort_stats('cumtime')
+
+    stats = pstats.Stats(profiler).sort_stats(sort_by)
     stats.print_stats()
 
-    if not os.path.exists('performance'):
-        os.makedirs('performance')
+    if file_name:
+        dir_paths = split_path(file_name)[:-1]
+        make_dirs(dir_paths)
 
-    file_name = re.sub('[ :.-]', '_', str(datetime.now()))
-    stats.dump_stats(f"performance/{file_name}")
+        stats.dump_stats(file_name)

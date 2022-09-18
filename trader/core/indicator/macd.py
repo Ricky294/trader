@@ -5,14 +5,19 @@ from trader.data.candle_schema import CLOSE_PRICE
 from trader.data.model import Candles
 
 from trader.core.indicator import Indicator
-from trader.core.util.vectorized.trade import cross
+from trader.trade import cross
 
 
 class MACDIndicator(Indicator):
-    """Moving Average Convergence Divergence"""
+    """
+    Moving Average Convergence Divergence - MACD
+
+    Momentum Indicator
+    """
 
     def __init__(
             self,
+            candles: Candles,
             line=CLOSE_PRICE,
             fast_period=12,
             slow_period=26,
@@ -29,6 +34,19 @@ class MACDIndicator(Indicator):
         self.fast_period = fast_period      # macd line
         self.slow_period = slow_period      # signal line
         self.signal_period = signal_period
+        super().__init__(candles)
+
+    @property
+    def macd(self):
+        return self._current_slice(self._macd)
+
+    @property
+    def signal(self):
+        return self._current_slice(self._signal)
+
+    @property
+    def histogram(self):
+        return self._current_slice(self._histogram)
 
     def __call__(self, candles: Candles):
         """
@@ -39,7 +57,7 @@ class MACDIndicator(Indicator):
         :return: MACDResult - macd, signal, histogram
         """
 
-        self.macd, self.signal, self.histogram = talib.MACD(
+        self._macd, self._signal, self._histogram = talib.MACD(
             candles.average(self.line),
             fastperiod=self.fast_period,
             slowperiod=self.slow_period,
@@ -78,7 +96,7 @@ class MACDIndicator(Indicator):
         """
         return self.signal < .0
 
-    def macd_and_signal_above_zero(self):
+    def macd_and_signal_above_zero(self) -> np.ndarray:
         """
         True where macd and signal line is above zero.
 
@@ -86,7 +104,7 @@ class MACDIndicator(Indicator):
         """
         return self.macd_above_zero() & self.signal_above_zero()
 
-    def macd_and_signal_below_zero(self):
+    def macd_and_signal_below_zero(self) -> np.ndarray:
         """
         True where macd and signal line is below zero.
 

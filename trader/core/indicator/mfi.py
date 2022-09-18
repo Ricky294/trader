@@ -5,14 +5,18 @@ import talib
 from trader.data.model import Candles
 
 from trader.core.indicator import Indicator
-from trader.core.util.vectorized.trade import cross
+from trader.trade import cross
 
 
 class MFIIndicator(Indicator):
-    """Money Flow Index"""
+    """Money Flow Index - MFI
+
+    Momentum Indicator
+    """
 
     def __init__(
             self,
+            candles: Candles,
             period=14,
             upper_limit=80.0,
             lower_limit=20.0,
@@ -20,6 +24,11 @@ class MFIIndicator(Indicator):
         self.period = period
         self.upper_limit = upper_limit
         self.lower_limit = lower_limit
+        super().__init__(candles)
+
+    @property
+    def mfi(self):
+        return self._current_slice(self._mfi)
 
     def __call__(self, candles: Candles):
         """
@@ -28,7 +37,7 @@ class MFIIndicator(Indicator):
         :param candles: Input data for MFI indicator
         :return: MFIResult - mfi
         """
-        self.mfi = talib.MFI(
+        self._mfi = talib.MFI(
             candles.high_prices,
             candles.low_prices,
             candles.close_prices,

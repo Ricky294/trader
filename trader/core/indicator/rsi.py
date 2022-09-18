@@ -1,39 +1,38 @@
+from __future__ import annotations
+
 import numpy as np
 import talib
 
 import nputils as npu
 
+from trader.trade import cross
+
 from trader.data.model import Candles
 from trader.data.candle_schema import CLOSE_PRICE
 
-from trader.core.util.vectorized.trade import cross
 from trader.core.indicator import Indicator
 
 
 class RSIIndicator(Indicator):
-    """Relative Strength Index"""
+    """
+    Relative Strength Index - RSI
 
-    def __init__(
-            self,
-            line=CLOSE_PRICE,
-            period=14,
-            upper_limit=70.0,
-            lower_limit=30.0,
-    ):
+    Momentum Indicator
+    """
+
+    def __init__(self, candles: Candles, line=CLOSE_PRICE, period=14, upper_limit=70.0, lower_limit=30.0):
         self.line = line
         self.period = period
         self.upper_limit = upper_limit
         self.lower_limit = lower_limit
+        super().__init__(candles)
+
+    @property
+    def rsi(self):
+        return self._current_slice(self._rsi)
 
     def __call__(self, candles: Candles):
-        """
-        Calculates Relative Strength Index
-
-        :param candles: Input data for indicator.
-
-        :return: RSIResult - rsi
-        """
-        self.rsi = talib.RSI(candles.average(self.line), timeperiod=self.period)
+        self._rsi = talib.RSI(candles.average(self.line), timeperiod=self.period)
 
     def above50(self) -> np.ndarray:
         """

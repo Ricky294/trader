@@ -1,97 +1,129 @@
+import copy
 import inspect
+from abc import abstractmethod
+
 from functools import wraps
-from typing import Iterator, Callable
+from typing import Callable, Any, Collection, Sequence
 
 import numpy as np
 
-from util.inspect_util import is_public, is_iterable, is_array_return_annotated
+from util.inspect_util import is_public, is_iterable, is_array_return_annotated_func
 
 
-def public_attributes(obj):
-    return filter(lambda x: not x.startswith('_'), dir(obj))
+def get_iterable_attr_names(attrs: dict[str, Any], exclude: list[str] | tuple[str]) -> list[str]:
+    return [
+        attr_name
+        for attr_name, attr in attrs.items()
+        if is_iterable(attr) and attr_name not in exclude
+    ]
 
 
-class ArraySliceWrapper:
-
-    __slots__ = '_arr', 'i'
-
-    def __init__(self, arr, /):
-        self._arr = arr
-        self.i = 1
-
-    def update(self, obj):
-        self.i = len(obj)
-
-    def func_get(self, i, /):
-        return lambda *args, **kwargs: self.get(i)
+def get_array_return_annotated_func_names(attrs: dict[str, Any]) -> list[str]:
+    return [
+        attr_name
+        for attr_name, attr in attrs.items()
+        if is_array_return_annotated_func(attr)
+    ]
 
 
-class ObjectSliceWrapper:
+def get_class_attrs(obj, /) -> dict[str, Any]:
+    """
+    Returns instance and class attributes of `obj` as dict.
+    """
 
-    __slots__ = ('obj', 'i')
-
-    def __init__(self, obj, /):
-        self.obj = obj
-        self.i = 1
-
-    def update(self, obj):
-        self.i = len(obj)
-
-    def __getattr__(self, name):
-        obj = object.__getattribute__(self, 'obj')
-        attr = obj.__getattribute__(name)
-        if is_iterable(attr):
-            return attr[:self.i]
-        elif is_array_return_annotated(attr):
-            return lambda *args, **kwargs: attr(*args, **kwargs)[:self.i]
-        return attr
+    return {
+        attr_name: getattr(obj, attr_name)
+        for attr_name in dir(obj)
+    }
 
 
-class ArraySliceIter(Iterator):
+class SliceIterator:
     """Iterates on array from start to end while keeping all previous elements.
 
     :example:
-    >>> for e in ArraySliceIter([1, 2, 3]):
+    >>> for e in SliceIterator([1, 2, 3]):
     ...     e
     [1]
     [1, 2]
     [1, 2, 3]
 
-    >>> for e in ArraySliceIter((1, 2, 3)):
+    >>> for e in SliceIterator((1, 2, 3)):
     ...     e
     (1,)
     (1, 2)
     (1, 2, 3)
     """
 
-    __slots__ = ('_arr', '_i', '_len')
+    __slots__ = 'start_index', '_seq', '_seq_len', '_i'
 
-    def __init__(self, arr, /):
-        self._len = len(arr)
-        self._arr = arr
-        self._i = 0
+    def __init__(self, _seq: Sequence, start_index=0):
+        self._seq = _seq
+        self._seq_len = len(self._seq)
 
-    @property
-    def i(self):
-        """Current index."""
-        return self._i
+        self.start_index = start_index
+        self._i = start_index
 
+    def __iter__(self):
+        self._i = self.start_index
+        return self
+
+    def __next__(self):
+        if self._seq_len > self._i:
+            self._i += 1
+            return self._seq[:self._i]
+        else:
+            raise StopIteration
+
+
+class SuperIterator:
+
+    @abstractmethod
     def __len__(self):
-        return self._len
+        ...
+
+    def __getitem__(self, item):
+        cpy = copy.deepcopy(self)
+
+        for key, val in vars(self).items():
+            if is_iterable(val):
+                setattr(cpy, key, val.__getitem__(item))
+
+        return cpy
 
     def __iter__(self):
         self._i = 0
         return self
 
     def __next__(self):
-        if self._i >= self._len:
+        if self._i < self.__len__():
+            ret = self[self._i]
+        else:
             raise StopIteration
 
         self._i += 1
-        return self._arr[:self._i]
+        return ret
+
+    def slice_iter(self):
+        return SliceIterator(self)
 
 
-def _fun_replayer(fun: Callable, *args, **kwargs):
+class X(SuperIterator):
+
+    def __len__(self):
+        return 4
+
+    def __init__(self):
+        self.var1 = 5
+        self.var2 = 'str'
+        self.a = [5, 10, 15, 20]
+        super().__init__()
+
+"""
+for x in X().slice_iter():
+    print(x.a)
+"""
+
+def _fun_replayer(fun: Callable[[...], Collection], *args, **kwargs):
     i = 0
     res = fun(*args, **kwargs)
     len_ = len(res)
@@ -120,15 +152,13 @@ def _cls_replayer(cls):
     return wrapper
 
 
-def replayer(cls_or_func: Callable):
+def replayer(cls_or_func):
     """
     Class and function decorator to replay array like returns from start to end.
 
     :raises StopIteration: After all elements replayed.
 
-    :example:
-
-    Example - Function decorator
+    Function decorator example
     ----
 
     >>> @replayer
@@ -146,14 +176,14 @@ def replayer(cls_or_func: Callable):
     ...
     StopIteration
 
-    Example - Class decorator
+    Class decorator example
     ----
 
     >>> @replayer
     ... class XY:
     ...
     ...    def a(self) -> list:
-    ...        return [5,10,15]
+    ...        return [5, 10, 15]
     ...
     >>> xy = XY()
     >>> xy.a()
@@ -172,3 +202,9 @@ def replayer(cls_or_func: Callable):
         return _cls_replayer(cls_or_func)
     else:
         return _fun_replayer(cls_or_func)
+
+
+if __name__ == "__main__":
+    import doctest
+
+    doctest.testmod(verbose=True)

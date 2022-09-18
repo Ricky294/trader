@@ -1,0 +1,4 @@
+NONE = 0
+BUY = LONG = 1
+SELL = SHORT = -1
+

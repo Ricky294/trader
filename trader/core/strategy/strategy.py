@@ -1,30 +1,33 @@
 from __future__ import annotations
 
 import logging
-from functools import wraps
 from typing import Iterable
 
-from tqdm import trange
-
-import util.format as fmt
+import websocket
+from tqdm import tqdm
 
 from trader.backtest import BacktestFuturesBroker
 
-from trader.core.const import Mode
+from trader.core.const import Environment, BrokerEvent
 from trader.core.indicator import Indicator
 from trader.core.interface import FuturesBroker
-from trader.core.model import Balance, Position, Order
-from trader.core.util import(
-    store_iterable_object_names,
-    cache_array_return_annotated_funcs,
-    sliced_iterable_getattribute_wrapper,
-)
-from trader.data.binance import candle_stream
+from trader.core.model import Order, Balance, Position, Balances, Positions, Orders
 
-from trader.data.model import Candles
-from trader.log import logger
-from trader.ui import UIApp, GraphWrapper
+from trader.data.binance import candle_stream
+from trader.data.model import Candles, Line, FuncLine, AttrLine
+
+from trader.live.binance import BinanceFuturesBroker
+import trader.log
+
+from trader.settings import Settings
+
+from trader.ui import UIApp, CustomGraph
 from trader.ui.const import Volume, Candlestick
+
+import util.format_util as fmt
+from util.inspect_util import is_array_return_annotated_func
+from util.iter_util import get_class_attrs
+from util.observer import Observer
 
 
 class StrategyException(Exception):
@@ -33,181 +36,163 @@ class StrategyException(Exception):
         super(StrategyException, self).__init__()
 
 
-def set_broker_callbacks(strategy: Strategy, broker: FuturesBroker):
-    broker.on_new_orders = strategy.on_new_orders
-    broker.on_filled_orders = strategy.on_filled_orders
-    broker.on_cancel_orders = strategy.on_cancel_orders
+class Strategy(Observer):
 
-    broker.on_position_close = strategy.on_position_close
-    broker.on_position_open = strategy.on_position_open
+    def __new__(cls, candles: Candles, broker: FuturesBroker):
+        self = super().__new__(cls)
+        self._candles = candles
+        self._i = len(candles) - 1
 
-    broker.on_balance_change = strategy.on_balance_change
-    broker.on_balance_gain = strategy.on_balance_gain
-    broker.on_balance_loss = strategy.on_balance_loss
+        self._lines = set()
+        self._ind_refs = set()
 
+        broker.publisher.attach(self)
 
-def _strategy_init_wrapper(init):
+        if isinstance(broker, BacktestFuturesBroker):
+            broker._post_init(candles)
 
-    @wraps(init)
-    def wrapper(self, *args, **kwargs):
-        try:
-            self._candles = kwargs.pop('candles')
-            self._broker = kwargs.pop('broker')
-        except KeyError as ke:
-            raise KeyError('Missing "broker"/"candles" keyword argument(s) on init strategy!') from ke
+        self._broker = broker
 
-        Indicator._candles = self._candles
+        if Settings.event_logging:
+            broker.publisher.attach(self.logger)
 
-        if 'object.' not in init.__qualname__:
-            init(self, *args, **kwargs)
+        return self
 
-        store_iterable_object_names(self)
-        cache_array_return_annotated_funcs(self)
-
-        set_broker_callbacks(strategy=self, broker=self._broker)
-
-        self.__class__.__getattribute__ = sliced_iterable_getattribute_wrapper(self.__class__.__getattribute__)
-
-    return wrapper
-
-
-class StrategyMeta(type):
-
-    def __new__(mcs, name, bases, dct):
-        cls = super().__new__(mcs, name, bases, dct)
-        cls.__init__ = _strategy_init_wrapper(cls.__init__)
-        return cls
-
-
-class Strategy(metaclass=StrategyMeta):
+    def update(self, event: BrokerEvent, *args, **kwargs):
+        # Matches all events.
+        # For example if event is BrokerEvent.ON_IN_POSITION
+        # then self.on_in_position method is called.
+        getattr(self, str(event.value).lower())(*args, **kwargs)
 
     @property
-    def logger(self) -> logging.Logger:
-        return logger.backtest if self.mode is Mode.BACKTEST else logger.live
+    def candles(self) -> Candles:
+        return self._candles[:self._i + 1]
 
     @property
     def broker(self) -> FuturesBroker:
         return self._broker
 
     @property
-    def candles(self) -> Candles:
-        return self._candles
+    def environment(self) -> Environment:
+        if isinstance(self._broker, BacktestFuturesBroker):
+            return Environment.BACKTEST
+        elif isinstance(self._broker, BinanceFuturesBroker):
+            return Environment.BINANCE
+        raise ValueError(f'Unsupported broker: {self._broker}')
 
     @property
-    def mode(self) -> Mode:
-        return Mode.BACKTEST if isinstance(self._broker, BacktestFuturesBroker) else Mode.LIVE
+    def logger(self) -> logging.Logger:
+        if self.environment is Environment.BACKTEST:
+            return trader.log.backtest()
+        elif self.environment is Environment.BINANCE:
+            return trader.log.binance()
+        raise ValueError(f'Unsupported environment: {self.environment}')
 
-    def __call__(self, candles: Candles):
-        self._candles = candles
-        Indicator._candles = candles
-        position = self._broker.position
+    def __save_wrapped_attrs(self):
+        for attr_name, attr in get_class_attrs(self).items():
+            if isinstance(attr, Line):
+                self._lines.add(attr)
 
-        self.on_new_candle()
-        self.on_in_position(position) if position else self.on_not_in_position()
+    def __wrap_line_attrs(self):
+        for attr_name, attr in get_class_attrs(self).items():
+            if attr_name.endswith('line') and not isinstance(attr, Line):
+                if callable(attr):
+                    wrapped_attr = FuncLine(attr)
+                else:
+                    wrapped_attr = AttrLine(attr)
 
-    def on_new_candle(self):
-        """Called on every candle close."""
-        ...
+                setattr(self, attr_name, wrapped_attr)
+                self._lines.add(wrapped_attr)
 
-    def on_in_position(self, position: Position):
-        """Called on every new candle if there is an open position."""
-        ...
+    def __save_ind_refs(self):
+        for attr_name, attr in vars(self).items():
+            if isinstance(attr, Indicator):
+                self._ind_refs.add(attr)
 
-    def on_not_in_position(self):
-        """Called on every new candle if there is no open position."""
-        ...
-
-    def on_position_open(self, position: Position):
-        """Called on new position open."""
-        ...
-
-    def on_position_close(self, closed_position: Position):
-        """Called on position close."""
-        ...
-
-    def on_balance_change(self, prev_balance: Balance, curr_balance: Balance):
-        """Called on balance change."""
-        ...
-
-    def on_balance_gain(self, prev_balance: Balance, curr_balance: Balance):
-        """Called on balance increase."""
-        ...
-
-    def on_balance_loss(self, prev_balance: Balance, curr_balance: Balance):
-        """Called on balance decrease."""
-        ...
-
-    def on_position_profit(self, prev_balance: Balance, curr_balance: Balance):
-        """Called on position closed in profit."""
-        ...
-
-    def on_position_loss(self, prev_balance: Balance, curr_balance: Balance):
-        """Called on position closed in loss."""
-        ...
-
-    def on_new_orders(self, new_orders: list[Order]):
-        """Called when new order is created."""
-        ...
-
-    def on_cancel_orders(self, canceled_order: list[Order]):
-        """Called when an open order gets canceled."""
-        ...
-
-    def on_filled_orders(self, filled_orders: list[Order]):
-        """Called when an open order gets filled."""
-        ...
+    def __wrap_ind_funcs(self):
+        for ind in self._ind_refs:
+            for attr_name, attr in get_class_attrs(ind).items():
+                if is_array_return_annotated_func(attr):
+                    setattr(ind, attr_name, FuncLine(attr, self._i))
 
     def run(self):
-        if self.mode is Mode.LIVE:
-            candle_stream(
-                candles=self._candles,
-                on_candle=lambda *args, **kwargs: (),
-                on_candle_close=self.__call__,
-            )
-        elif self.mode is Mode.BACKTEST:
-            for _, candles in zip(trange(len(self._candles)), self._candles.slice_iter()):
-                self._broker(candles)
-                self.__call__(candles)
+        trader.log.core().info(f'Running backtest on {type(self).__qualname__} strategy.')
 
-            self._broker.finished()
-            self.__log_results()
+        if self.environment is Environment.BACKTEST:
+            self.__backtest_run()
+        elif self.environment is Environment.BINANCE:
+            self.__live_run()
         else:
-            raise ValueError(f'Unsupported broker instance: {self._broker.__class__.__name__}')
+            raise ValueError(f'Unsupported broker {type(self._broker).__name__}')
 
-    def __log_results(self):
-        number_of_positions = len(self._broker.positions)
-        number_of_wins = 0
-        for pos in self._broker.positions:
-            if pos.profit > 0:
-                number_of_wins += 1
+    def __live_run(self):
 
-        try:
-            win_rate = fmt.num(number_of_wins / number_of_positions, prec=2, perc=True)
-        except ZeroDivisionError:
-            win_rate = 0
+        def on_exception(ws: websocket.WebSocketApp, exc: Exception) -> None:
+            self._broker.cancel_all(symbol=self._candles.symbol)
 
-        logger.core.info(f'Finished backtesting on {len(self.candles)} candles.')
-        logger.core.info(f'Entered {number_of_positions} positions.')
-        logger.core.info(f'Wins: {number_of_wins}, '
-                         f'Losses: {number_of_positions - number_of_wins}, '
-                         f'Win rate: {win_rate}')
-        logger.core.info(f'Balance: {self._broker.balances[0].value_str()} -> {self._broker.balances[-1].value_str()}')
+        if Settings.candle_stream_log:
+            on_candle_callback = lambda *args, **kwargs: trader.log.binance().info(*args, **kwargs)
+        else:
+            on_candle_callback = lambda *args, **kwargs: ()
+
+        candle_stream(
+            candles=self._candles,
+            on_candle=on_candle_callback,
+            on_candle_close=self.broker.__call__,
+            on_exception=on_exception,
+            log_candles=Settings.candle_stream_log,
+        )
+
+    def __backtest_run(self):
+        self.__save_wrapped_attrs()
+        self.__wrap_line_attrs()
+        self.__save_ind_refs()
+
+        for i in tqdm(range(len(self._candles))):
+            self._i = i
+
+            for attr in self._lines:
+                attr._i = i
+
+            for attr in self._ind_refs:
+                attr._i = i
+
+            self.broker.__call__(self._candles[:self._i + 2])
+
+        self.__backtest_log_results()
+
+    def __backtest_log_results(self):
+        number_of_opened_positions = self.broker.position_history.number_of_opened_positions
+        number_of_closed_positions = self.broker.position_history.number_of_closed_positions
+        number_of_wins = self.broker.position_history.number_of_wins
+        win_rate = self.broker.position_history.win_rate
+
+        trader.log.core().info(f'Finished backtesting on {len(self.candles)} candles.')
+        trader.log.core().info(f'Entered {number_of_opened_positions} positions.')
+        trader.log.core().info(
+            f'Wins: {number_of_wins}, '
+            f'Losses: {number_of_closed_positions - number_of_wins}, '
+            f'Win rate: {fmt.num(win_rate, prec=2, perc=True)}'
+        )
+        trader.log.core().info(
+            f'Balance: {self.broker.balance_history[0].simple_repr()} '
+            f'-> {self.broker.balance_history[-1].simple_repr()}'
+        )
 
     def plot(
             self,
             candlestick_type=Candlestick.AUTO,
-            volume_type=Volume.AUTO,
+            volume_type: Volume | None = Volume.AUTO,
             side_labels=True,
             price_markers=True,
-            extra_graphs: Iterable[GraphWrapper] = ()
-    ):
+            custom_graphs: Iterable[CustomGraph] = (),
+            debug=True,
+    ) -> None:
         self._ui_app = UIApp(
             candles=self.candles,
-            positions=self._broker.positions,
-            orders=self._broker.orders,
-            balances=self._broker.balances,
-            entry_fees=self._broker.entry_fees,
-            exit_fees=self._broker.exit_fees,
+            positions=self._broker.position_history,
+            orders=self._broker.order_history,
+            balances=self._broker.balance_history,
         )
 
         self._ui_app.run(
@@ -215,5 +200,72 @@ class Strategy(metaclass=StrategyMeta):
             volume_type=volume_type,
             side_labels=side_labels,
             price_markers=price_markers,
-            custom_graphs=extra_graphs
+            custom_graphs=custom_graphs,
+            debug=debug,
         )
+
+    def on_candle_close(self) -> None:
+        """Called on every candle close."""
+        ...
+
+    # Position events
+
+    def on_in_position(self, position: Position) -> None:
+        """Called on candle close if a position is open."""
+        ...
+
+    def on_position_in_profit(self, position: Position) -> None:
+        """Called on candle close if a position is open and in profit."""
+        ...
+
+    def on_position_in_loss(self, position: Position) -> None:
+        """Called on candle close if a position is open and in loss."""
+        ...
+
+    def on_not_in_position(self) -> None:
+        """Called on every candle close if no position is open."""
+        ...
+
+    def on_position_open(self, position: Position) -> None:
+        """Called on new position open."""
+        ...
+
+    def on_position_close(self, closed_position: Position) -> None:
+        """Called on position close."""
+        ...
+
+    def on_position_adjust(self, position: Position) -> None:
+        """Called on position change."""
+        ...
+
+    def on_position_close_in_profit(self, closed_position: Position) -> None:
+        """Called on position close in profit."""
+        ...
+
+    def on_position_close_in_loss(self, closed_position: Position) -> None:
+        """Called on position close in loss."""
+        ...
+
+    # Balance events
+
+    def on_balance_change(self, balance: Balance) -> None:
+        """Called on balance change."""
+        ...
+
+    # Order events
+
+    def on_orders_create(self, new_orders: list[Order]) -> None:
+        """Called on new order creation."""
+        ...
+
+    def on_orders_cancel(self, canceled_order: list[Order]) -> None:
+        """Called on open order cancel."""
+        ...
+
+    def on_orders_fill(self, filled_orders: list[Order]) -> None:
+        """Called an open order fill."""
+        ...
+
+    def on_leverage_change(self, symbol: str, leverage: int) -> None:
+        """Called on leverage set."""
+        ...

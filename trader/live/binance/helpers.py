@@ -2,87 +2,81 @@ from __future__ import annotations
 
 from binance.client import Client
 
-from trader.core.util.common import generate_character_sequence, generate_random_string
-from trader.core.exception import PositionError, SymbolError, MarketError
-from trader.data.super_enum import Market
-from trader.live.binance.position import BinancePosition
+import util.generate as generate
+from trader.core.const import Market
+from trader.live.binance import BinanceFuturesExchangeInfo, BinanceSpotExchangeInfo
 
 
-def get_symbol_info(symbol: str, market: Market):
-    for symbol_info in get_all_symbol_info(market):
-        if symbol_info.symbol == symbol:
-            return symbol_info
-
-    raise SymbolError(symbol)
-
-
-def get_exchange_info(market: Market):
-    if market == Market.FUTURES:
-        return Client().futures_exchange_info()
-    elif market == Market.SPOT:
-        return Client().get_exchange_info()
-    raise MarketError(market)
+def get_current_price(symbol: str, market: Market):
+    if market is Market.FUTURES:
+        return float(Client().futures_symbol_ticker(symbol=symbol)['price'])
+    else:
+        return float(Client().get_symbol_ticker(symbol=symbol)['price'])
 
 
-def get_all_symbol_info(market: Market):
-    return get_exchange_info(market)['symbol']
+def get_futures_symbol_info(symbol: str):
+    return get_futures_exchange_info().get_symbol_info(symbol)
 
 
-def get_all_base_asset(market: Market):
+def get_spot_symbol_info(symbol: str):
+    return get_spot_exchange_info().get_symbol_info(symbol)
+
+
+def get_futures_exchange_info():
+    return BinanceFuturesExchangeInfo(Client().futures_exchange_info())
+
+
+def get_spot_exchange_info():
+    return BinanceSpotExchangeInfo(Client().get_exchange_info())
+
+
+def get_all_futures_symbol_info():
+    return get_futures_exchange_info().symbols
+
+
+def get_all_spot_symbol_info():
+    return get_spot_exchange_info().symbols
+
+
+def get_all_futures_base_asset():
     """
-    Returns all unique super_enum.py assets available on Binance `market`.
+    Returns all unique base assets available on Binance Futures.
 
-    :param market: 'FUTURES' or 'SPOT'
-    :return: set of super_enum.py assets
+    :return: set of base assets
     """
 
-    symbols = get_all_symbol_info(market)
-    return set(symbol['baseAsset'] for symbol in symbols)
+    symbols = get_all_futures_symbol_info()
+    return set(symbol.base_asset for symbol in symbols)
 
 
-def get_all_quote_asset(market: Market):
+def get_all_futures_quote_asset():
     """
-    Returns all unique quote assets available on Binance `market`.
+    Returns all unique quote assets available on Binance Futures.
 
-    :param market: 'FUTURES' or 'SPOT'
     :return: set of quote assets
     """
-    symbols = get_all_symbol_info(market)
-    return set(symbol['quoteAsset'] for symbol in symbols)
+    symbols = get_all_futures_symbol_info()
+    return set(symbol.quote_asset for symbol in symbols)
 
 
-def get_all_symbol(market: Market):
+def get_all_futures_symbol():
     """
-    Returns all unique symbols available on Binance `market`.
+    Returns all unique symbols available on Binance Futures.
 
-    Symbol is a concatenation of a super_enum.py asset and a quote asset (e.g.: 'BTC' + 'USDT' = 'BTCUSDT').
+    Symbol is a concatenation of a base and a quote asset (e.g.: 'BTC' + 'USDT' = 'BTCUSDT').
 
-    :param market: 'FUTURES' or 'SPOT'
     :return: set of symbols
     """
 
-    symbols = get_all_symbol_info(market)
-    return set(symbol['symbol'] for symbol in symbols)
-
-
-def get_position(client: Client, symbol: str):
-    symbol = symbol.upper()
-
-    for position in client.futures_account()['positions']:
-        if position['symbol'] == symbol:
-            try:
-                return BinancePosition(position)
-            except PositionError:
-                return None
-
-    raise PositionError(f'Position {symbol!r} not found!')
+    symbols = get_all_futures_symbol_info()
+    return set(symbol.symbol for symbol in symbols)
 
 
 def generate_client_order_id() -> str:
     length = 36
 
-    zero_to_nine = ''.join(generate_character_sequence(48, 58))
-    a_to_z = ''.join(generate_character_sequence(65, 91))
-    A_to_Z = ''.join(generate_character_sequence(97, 123))
+    _0_to_9 = ''.join(generate.char_sequence(48, 58))
+    a_to_z = ''.join(generate.char_sequence(65, 91))
+    A_to_Z = ''.join(generate.char_sequence(97, 123))
 
-    return generate_random_string(r'.:/_-' + zero_to_nine + a_to_z + A_to_Z, length)
+    return generate.random_string(r'.:/_-' + _0_to_9 + a_to_z + A_to_Z, length)

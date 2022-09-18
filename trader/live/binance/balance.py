@@ -1,12 +1,20 @@
+from datetime import datetime
+from dataclasses import dataclass
+
 from trader.core.model import Balance
+from util.format_util import normalize_data_types
 
 
+@dataclass(frozen=True)
 class BinanceBalance(Balance):
 
-    def __init__(self, time: int, asset: str, total: float, available: float):
-        super().__init__(time=time, asset=asset, available=available)
-        self.total = float(total)
+    @classmethod
+    def from_dict(cls, balance: dict[str, float | str]):
+        balance = normalize_data_types(balance)
 
-    def used(self):
-        return abs(self.available - self.total)
-
+        return cls(
+            create_time=datetime.fromtimestamp(balance['updateTime'] / 1000),
+            asset=balance['asset'],
+            total=balance['balance'],
+            available=balance['withdrawAvailable']
+        )

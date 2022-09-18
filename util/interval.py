@@ -11,7 +11,7 @@ SEC_MAP = {
 }
 
 
-def split_interval(interval, /):
+def split_interval(interval: str, /):
     """
     Decomposes interval to time value and time unit.
 
@@ -34,12 +34,11 @@ def split_interval(interval, /):
     return int(value), timeframe
 
 
-def interval_to_seconds(interval, /) -> int:
+def interval_to_seconds(interval: str, /) -> int:
     """
     Converts interval (str) to seconds (int)
 
     :examples:
-
     >>> interval_to_seconds('1m')
     60
 
@@ -84,3 +83,9 @@ def seconds_to_interval(seconds: int, /):
                 seconds -= in_seconds * ratio
 
     return ' '.join(generate_intervals())
+
+
+if __name__ == "__main__":
+    import doctest
+
+    doctest.testmod(verbose=True)

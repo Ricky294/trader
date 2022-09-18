@@ -6,44 +6,43 @@ from trader.backtest import BacktestFuturesBroker
 
 from trader.core.indicator import MAIndicator
 from trader.core.interface import FuturesBroker
-from trader.core.model import Balance, Order, Position
+from trader.core.model import Balance, Position
 from trader.core.strategy import Strategy
-from trader.core.const import MA, Side, OrderType, Market
+from trader.core.const import MA, Side, Market
 
 from trader.data.binance import get_store_candles
 from trader.data.db import HDF5CandleStorage
-from trader.data.model import Candles
+from trader.data.model import Candles, Symbol
 
 from trader.trade import cross
 
-from trader.ui import GraphWrapper
+from trader.ui import CustomGraph
 from trader.ui.const import Graph
+from util import performance
 
 
 class MACrossStrategy(Strategy):
 
-    def __init__(self):
-        self.fast_ma = MAIndicator(period=10, type=MA.SMA)
-        self.slow_ma = MAIndicator(period=50, type=MA.SMA)
-        self.bearish_cross = cross(self.fast_ma.ma < self.slow_ma.ma)
-        self.bullish_cross = cross(self.fast_ma.ma > self.slow_ma.ma)
+    def __init__(self, candles: Candles, broker: FuturesBroker):
+        self.fast_ma = MAIndicator(candles=candles, period=15, type=MA.SMA)
+        self.slow_ma = MAIndicator(candles=candles, period=30, type=MA.SMA)
+        self.bullish_cross_line = cross(self.fast_ma.ma > self.slow_ma.ma)
+        self.bearish_cross_line = cross(self.fast_ma.ma < self.slow_ma.ma)
 
     def on_not_in_position(self):
-        if self.bullish_cross[-1]:
-            self.broker.create_order(Order(symbol=symbol, type=OrderType.MARKET, side=Side.BUY, amount=100))
-        elif self.bearish_cross[-1]:
-            self.broker.create_order(Order(symbol=symbol, type=OrderType.MARKET, side=Side.SELL, amount=100))
+        if self.bullish_cross_line[-1]:
+            self.broker.enter_position(symbol=symbol, side=Side.BUY, amount=100)
+        elif self.bearish_cross_line[-1]:
+            self.broker.enter_position(symbol=symbol, side=Side.SELL, amount=100)
 
     def on_in_position(self, position: Position):
-        if self.bullish_cross[-1] or self.bearish_cross[-1]:
+        if self.bullish_cross_line[-1] or self.bearish_cross_line[-1]:
             self.broker.close_position_market(symbol=symbol)
 
 
 if __name__ == '__main__':
     start_cash = 1000
-    base_currency = 'BTC'
-    quote_currency = 'USDT'
-    symbol = base_currency + quote_currency
+    symbol = Symbol('BTC', 'USDT')
 
     candles = get_store_candles(
         symbol=symbol,
@@ -56,30 +55,29 @@ if __name__ == '__main__':
     )
 
     broker = BacktestFuturesBroker(
-        balances=[Balance(time=candles.times[0], asset=quote_currency, available=start_cash)],
-        symbols_set_leverage={symbol: 1},
-        maker_fee_rate=0.0002,
-        taker_fee_rate=0.0004,
-        liquidation=False,
+        balances={symbol.quote: start_cash},
+        symbol_leverage_pair={symbol: 1},
+        maker_fee_percentage=0.02,
+        taker_fee_percentage=0.04,
     )
 
     strategy = MACrossStrategy(candles=candles, broker=broker)
     strategy.run()
     strategy.plot(
-        extra_graphs=[
-            GraphWrapper(
+        custom_graphs=[
+            CustomGraph(
                 graph=Graph.CANDLESTICK,
                 graph_object=go.Scattergl(
-                    x=candles.pd_open_times,
+                    x=candles.times,
                     y=strategy.slow_ma.ma,
                     name='Slow MA',
                     marker={'color': '#D10000'},
                 ),
             ),
-            GraphWrapper(
+            CustomGraph(
                 graph=Graph.CANDLESTICK,
                 graph_object=go.Scattergl(
-                    x=candles.pd_open_times,
+                    x=candles.times,
                     y=strategy.fast_ma.ma,
                     name='Fast MA',
                     marker={'color': '#3EA055'},

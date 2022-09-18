@@ -1,1 +1,2 @@
-from .position import BacktestPosition
+from .position import calculate_profit, calculate_position_profit, is_position_liquidated
+from .trailing_stop import BacktestTrailingStopMarketOrder

@@ -4,7 +4,74 @@ from typing import Iterable
 import numpy as np
 
 
-def is_public(name: str, /):
+def is_all_empty(values: Iterable):
+    """
+    Returns True if all `values` are 0, None or empty string.
+
+    :examples:
+    >>> is_all_empty(['0.0', '0', .0, None, '', 'None'])
+    True
+
+    >>> is_all_empty(['5', 'xy', '', None])
+    False
+
+    >>> is_all_empty([False, 'false', 'False'])
+    False
+
+    """
+
+    for value in values:
+        try:
+            if value in ['', None, 'None']:
+                continue
+            elif float(value) != .0:
+                return False
+        except (ValueError, TypeError):
+            return False
+
+    return True
+
+
+def is_all_zero(values: Iterable):
+    """
+    Returns True if all the `values` are 0.
+
+    :examples:
+    >>> is_all_zero(['0.0', '0', 0.0, 0])
+    True
+
+    >>> is_all_zero(['x', '0', None])
+    False
+    """
+
+    for value in values:
+        try:
+            if float(value) != .0:
+                return False
+        except (ValueError, TypeError):
+            return False
+    return True
+
+
+def is_all_none(values: Iterable):
+    """
+    Returns True if all the `values` are None.
+
+    :examples:
+    >>> is_all_none([1, 2, None])
+    False
+
+    >>> is_all_none([None, None, None])
+    True
+    """
+
+    for value in values:
+        if value is not None:
+            return False
+    return True
+
+
+def is_public(attr_name: str, /):
     """
     Returns True if `name` does not start with underscore.
 
@@ -22,7 +89,7 @@ def is_public(name: str, /):
     False
     """
 
-    return not name.startswith('_')
+    return not attr_name.startswith('_')
 
 
 def is_public_callable(obj, /):
@@ -51,46 +118,138 @@ def is_public_callable(obj, /):
     return callable(obj) and is_public(obj.__class__.__name__)
 
 
-def is_magic(obj):
-    return obj.startswith('__') and obj.endswith('__')
+def is_private(attr_name: str, /):
+    """
+    Returns True if `name` start with underscore.
+
+    :examples:
+    >>> is_private('public')
+    False
+
+    >>> is_private('_private')
+    True
+
+    >>> is_private('__dunder__')
+    False
+    """
+
+    return attr_name.startswith('_') and not attr_name.startswith('__')
 
 
-def is_return_annotated(obj):
+def is_dunder(attr_name: str, /):
+    """
+    True if attr_name starts and ends with double underscore ('__')
+
+    >>> is_dunder('init')
+    False
+
+    >>> is_dunder('__init')
+    False
+
+    >>> is_dunder('__init__')
+    True
+    """
+    return attr_name.startswith('__') and attr_name.endswith('__')
+
+
+def is_return_annotated(obj, /):
+    """
+    True if `obj` has a return annotation.
+
+    >>> def xy(): pass
+    >>> is_return_annotated(xy)
+    False
+
+    >>> def xy() -> int: pass
+    >>> is_return_annotated(xy)
+    True
+
+    :param obj:
+    :return:
+    """
     return inspect.signature(obj).return_annotation is not inspect._empty
 
 
-def is_array_return_annotated(obj):
+def is_bool(val: str):
+    if val.lower() in ('true', 'false'):
+        return True
+    return False
+
+
+def is_number(val):
     """
-    Returns true if `obj` is callable, and it's return annotation is array.
 
-    :example:
-    >>> def a() -> list:
-    ...    return [5, 10, 15]
-    ...
+    Examples:
+    --------
 
-    >>> def a2():
-    ...    return [5, 10, 15]
-    ...
-
-    >>> is_array_return_annotated(a)
+    >>> is_number('1')
     True
 
-    >>> is_array_return_annotated(a())
-    False
+    >>> is_number('1.1')
+    True
 
-    >>> is_array_return_annotated(None)
-    False
-
-    >>> is_array_return_annotated(a2)
-    False
-
+    >>> is_number('-1.1')
+    True
     """
 
-    # Return annotation is string if annotation is imported from __future__.
-    # Otherwise, it's a type object.
+    try:
+        float(val)
+        return True
+    except ValueError:
+        return False
+
+
+def is_int(val: str):
+    """
+
+    Examples:
+    --------
+
+    >>> is_int('xy')
+    False
+
+    >>> is_int('1')
+    True
+
+    >>> is_int('-1')
+    True
+
+    >>> is_int('1.1')
+    False
+
+    >>> is_int('-1.1')
+    False
+    """
+
+    if is_number(val):
+        return '.' not in val
+
+    return False
+
+
+def is_array_return_annotated_func(obj):
+    """
+    Returns true if `obj` is callable, and it's return annotation is array-like.
+
+    :examples:
+    >>> def a() -> list: return [5, 10, 15]
+    >>> is_array_return_annotated_func(a)
+    True
+
+    >>> def b(): return [5, 10, 15]
+    >>> is_array_return_annotated_func(b)
+    False
+
+    >>> def c() -> int: return 5
+    >>> is_array_return_annotated_func(c)
+    False
+    """
+
     return (
             callable(obj)
             and inspect.signature(obj).return_annotation
+            # Return annotation is 'str' if annotation is imported from __future__.
+            # Otherwise, it's 'type'.
             in [list, tuple, np.ndarray, 'list', 'tuple', 'np.ndarray']
     )
 
@@ -118,3 +277,8 @@ def is_iterable(arg):
 
     return isinstance(arg, Iterable) and not isinstance(arg, (str, bytes))
 
+
+if __name__ == "__main__":
+    import doctest
+
+    doctest.testmod(verbose=True)

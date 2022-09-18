@@ -1,118 +1,391 @@
-from typing import Iterable
-
 import numpy as np
 
-from trader.core.super_enum import OrderSide
+from trader.core.const import Side
 from trader.core.model import Position
-from trader.data.model import Columnar
+from trader.data.model import Models
 
 
-class Positions(Columnar):
+class Positions(Models[Position]):
 
-    def __init__(self, positions: Iterable[Position]):
-        super().__init__()
-        self.symbol = np.array([pos.symbol for pos in positions])
+    # Symbol
+    @property
+    def symbol(self):
+        return np.array(tuple(pos.symbol for pos in self))
 
-        self.side = np.array([pos.side for pos in positions])
-        self.amount = np.array([pos.amount for pos in positions])
-        self.quantity = np.array([pos.quantity for pos in positions])
-        self.leverage = np.array([pos.leverage for pos in positions])
-
-        self.entry_time = np.array([pos.time for pos in positions])
-        self.entry_price = np.array([pos.entry_price for pos in positions])
-
-        self.exit_time = np.array([pos.exit_time for pos in positions])
-        self.exit_price = np.array([pos.exit_price for pos in positions])
-        self.profit = np.array([pos.profit for pos in positions])
+    # Side
+    @property
+    def side(self):
+        return np.array(tuple(pos.side for pos in self))
 
     @property
-    def long_entry_time(self):
-        return self.entry_time[self.side == OrderSide.LONG]
+    def entry_side(self):
+        return np.array(tuple(pos.side for pos in self if pos.is_entry))
+
+    @property
+    def adjust_side(self):
+        return np.array(tuple(pos.side for pos in self if pos.is_adjust))
+
+    @property
+    def close_side(self):
+        return np.array(tuple(pos.side for pos in self if pos.is_close))
+
+    # Amount
+    @property
+    def amount(self):
+        return np.array(tuple(pos.amount for pos in self))
+
+    @property
+    def entry_amount(self):
+        return np.array(tuple(pos.amount for pos in self if pos.is_entry))
+
+    @property
+    def adjust_amount(self):
+        return np.array(tuple(pos.amount for pos in self if pos.is_adjust))
+
+    @property
+    def close_amount(self):
+        return np.array(tuple(pos.amount for pos in self if pos.is_close))
+
+    @property
+    def long_entry_amount(self):
+        return self.entry_amount[self.entry_side == Side.LONG]
+
+    @property
+    def long_adjust_amount(self):
+        return self.adjust_amount[self.adjust_side == Side.LONG]
+
+    @property
+    def long_close_amount(self):
+        return self.close_amount[self.close_side == Side.LONG]
+
+    @property
+    def short_entry_amount(self):
+        return self.entry_amount[self.entry_side == Side.SHORT]
+
+    @property
+    def short_adjust_amount(self):
+        return self.adjust_amount[self.adjust_side == Side.SHORT]
+
+    @property
+    def short_close_amount(self):
+        return self.close_amount[self.close_side == Side.SHORT]
+
+    # Quantity
+    @property
+    def quantity(self):
+        return np.array(tuple(pos.quantity for pos in self))
+
+    @property
+    def entry_quantity(self):
+        return np.array(tuple(pos.quantity for pos in self if pos.is_entry))
+
+    @property
+    def adjust_quantity(self):
+        return np.array(tuple(pos.quantity for pos in self if pos.is_adjust))
+
+    @property
+    def close_quantity(self):
+        return np.array(tuple(pos.quantity for pos in self if pos.is_close))
+
+    @property
+    def long_entry_quantity(self):
+        return self.entry_quantity[self.entry_side == Side.LONG]
+
+    @property
+    def long_adjust_quantity(self):
+        return self.adjust_quantity[self.adjust_side == Side.LONG]
+
+    @property
+    def long_close_quantity(self):
+        return self.close_quantity[self.close_side == Side.LONG]
+
+    @property
+    def short_entry_quantity(self):
+        return self.entry_quantity[self.entry_side == Side.SHORT]
+
+    @property
+    def short_adjust_quantity(self):
+        return self.adjust_quantity[self.adjust_side == Side.SHORT]
+
+    @property
+    def short_close_quantity(self):
+        return self.close_quantity[self.close_side == Side.SHORT]
+
+    # Price
+    @property
+    def price(self):
+        return np.array(tuple(pos.price for pos in self))
+
+    @property
+    def entry_price(self):
+        return np.array(tuple(pos.price for pos in self if pos.is_entry))
+
+    @property
+    def adjust_price(self):
+        return np.array(tuple(pos.price for pos in self if pos.is_adjust))
+
+    @property
+    def close_price(self):
+        return np.array(tuple(pos.price for pos in self if pos.is_close))
 
     @property
     def long_entry_price(self):
-        return self.entry_price[self.side == OrderSide.LONG]
+        return self.entry_price[self.entry_side == Side.LONG]
 
     @property
-    def long_side(self):
-        return self.side[self.side == OrderSide.LONG]
+    def long_adjust_price(self):
+        return self.adjust_price[self.adjust_side == Side.LONG]
 
     @property
-    def long_money(self):
-        return self.amount[self.side == OrderSide.LONG]
-
-    @property
-    def long_quantity(self):
-        return self.quantity[self.side == OrderSide.LONG]
-
-    @property
-    def long_leverage(self):
-        return self.leverage[self.side == OrderSide.LONG]
-
-    @property
-    def short_entry_time(self):
-        return self.entry_time[self.side == OrderSide.SHORT]
+    def long_close_price(self):
+        return self.close_price[self.close_side == Side.LONG]
 
     @property
     def short_entry_price(self):
-        return self.entry_price[self.side == OrderSide.SHORT]
+        return self.entry_price[self.entry_side == Side.SHORT]
 
     @property
-    def short_side(self):
-        return self.side[self.side == OrderSide.SHORT]
+    def short_adjust_price(self):
+        return self.adjust_price[self.adjust_side == Side.SHORT]
 
     @property
-    def short_money(self):
-        return self.amount[self.side == OrderSide.SHORT]
+    def short_close_price(self):
+        return self.close_price[self.close_side == Side.SHORT]
+
+    # Fee
+    @property
+    def fee(self):
+        return np.array(tuple(pos.fee for pos in self))
 
     @property
-    def short_quantity(self):
-        return self.quantity[self.side == OrderSide.SHORT]
+    def entry_fee(self):
+        return np.array(tuple(pos.fee for pos in self if pos.is_entry))
 
     @property
-    def short_leverage(self):
-        return self.leverage[self.side == OrderSide.SHORT]
+    def adjust_fee(self):
+        return np.array(tuple(pos.fee for pos in self if pos.is_adjust))
 
     @property
-    def long_exit_time(self):
-        return self.exit_time[self.side == OrderSide.LONG]
+    def close_fee(self):
+        return np.array(tuple(pos.fee for pos in self if pos.is_close))
 
     @property
-    def short_exit_time(self):
-        return self.exit_time[self.side == OrderSide.SHORT]
+    def long_entry_fee(self):
+        return self.entry_fee[self.entry_side == Side.LONG]
 
     @property
-    def long_exit_price(self):
-        return self.exit_price[self.side == OrderSide.LONG]
+    def long_adjust_fee(self):
+        return self.adjust_fee[self.adjust_side == Side.LONG]
 
     @property
-    def short_exit_price(self):
-        return self.exit_price[self.side == OrderSide.SHORT]
+    def long_close_fee(self):
+        return self.close_fee[self.close_side == Side.LONG]
 
     @property
-    def long_profit(self):
-        return self.profit[self.side == OrderSide.LONG]
+    def short_entry_fee(self):
+        return self.entry_fee[self.entry_side == Side.SHORT]
 
     @property
-    def short_profit(self):
-        return self.profit[self.side == OrderSide.SHORT]
+    def short_adjust_fee(self):
+        return self.adjust_fee[self.adjust_side == Side.SHORT]
 
     @property
-    def positive_profit(self):
-        return self.profit[self.profit >= 0]
+    def short_close_fee(self):
+        return self.close_fee[self.close_side == Side.SHORT]
+
+    # Leverage
+    @property
+    def leverage(self):
+        return np.array(tuple(pos.leverage for pos in self))
 
     @property
-    def negative_profit(self):
-        return self.profit[self.profit < 0]
+    def entry_leverage(self):
+        return np.array(tuple(pos.leverage for pos in self if pos.is_entry))
 
     @property
-    def positive_profit_time(self):
-        return self.exit_time[self.profit >= 0]
+    def adjust_leverage(self):
+        return np.array(tuple(pos.leverage for pos in self if pos.is_adjust))
 
     @property
-    def negative_profit_time(self):
-        return self.exit_time[self.profit < 0]
+    def close_leverage(self):
+        return np.array(tuple(pos.leverage for pos in self if pos.is_close))
 
+    @property
+    def long_entry_leverage(self):
+        return self.entry_leverage[self.entry_side == Side.LONG]
+
+    @property
+    def long_adjust_leverage(self):
+        return self.adjust_leverage[self.adjust_side == Side.LONG]
+
+    @property
+    def long_close_leverage(self):
+        return self.close_leverage[self.close_side == Side.LONG]
+
+    @property
+    def short_entry_leverage(self):
+        return self.entry_leverage[self.entry_side == Side.SHORT]
+
+    @property
+    def short_adjust_leverage(self):
+        return self.adjust_leverage[self.adjust_side == Side.SHORT]
+
+    @property
+    def short_close_leverage(self):
+        return self.close_leverage[self.close_side == Side.SHORT]
+
+    # Datetime
+    @property
+    def entry_time(self):
+        return np.array(tuple(pos.create_time for pos in self if pos.is_entry))
+
+    @property
+    def adjust_time(self):
+        return np.array(tuple(pos.create_time for pos in self if pos.is_adjust))
+
+    @property
+    def close_time(self):
+        return np.array(tuple(pos.create_time for pos in self if pos.is_close))
+
+    @property
+    def long_entry_time(self):
+        return self.entry_time[self.entry_side == Side.LONG]
+
+    @property
+    def long_adjust_time(self):
+        return self.adjust_time[self.adjust_side == Side.LONG]
+
+    @property
+    def long_close_time(self):
+        return self.close_time[self.close_side == Side.LONG]
+
+    @property
+    def short_entry_time(self):
+        return self.entry_time[self.entry_side == Side.SHORT]
+
+    @property
+    def short_adjust_time(self):
+        return self.adjust_time[self.adjust_side == Side.SHORT]
+
+    @property
+    def short_close_time(self):
+        return self.close_time[self.close_side == Side.SHORT]
+
+    @property
+    def positive_close_profit_time(self):
+        return self.close_time[self.close_profit >= 0]
+
+    @property
+    def zero_close_profit_time(self):
+        return self.close_time[self.close_profit == 0]
+
+    @property
+    def negative_close_profit_time(self):
+        return self.close_time[self.close_profit < 0]
+
+    # Timestamp
+    @property
+    def entry_timestamp(self):
+        return np.array(tuple(pos.create_timestamp for pos in self if pos.is_entry))
+
+    @property
+    def adjust_timestamp(self):
+        return np.array(tuple(pos.create_timestamp for pos in self if pos.is_adjust))
+
+    @property
+    def close_timestamp(self):
+        return np.array(tuple(pos.create_timestamp for pos in self if pos.is_close))
+
+    @property
+    def long_entry_timestamp(self):
+        return self.entry_timestamp[self.entry_side == Side.LONG]
+
+    @property
+    def long_adjust_timestamp(self):
+        return self.adjust_timestamp[self.adjust_side == Side.LONG]
+
+    @property
+    def long_close_timestamp(self):
+        return self.close_timestamp[self.close_side == Side.LONG]
+
+    @property
+    def short_entry_timestamp(self):
+        return self.entry_timestamp[self.entry_side == Side.SHORT]
+
+    @property
+    def short_adjust_timestamp(self):
+        return self.adjust_timestamp[self.adjust_side == Side.SHORT]
+
+    @property
+    def short_close_timestamp(self):
+        return self.close_timestamp[self.close_side == Side.SHORT]
+
+    @property
+    def positive_close_profit_timestamp(self):
+        return self.close_timestamp[self.close_profit >= 0]
+
+    @property
+    def zero_close_profit_timestamp(self):
+        return self.close_timestamp[self.close_profit == 0]
+
+    @property
+    def negative_close_profit_timestamp(self):
+        return self.close_timestamp[self.close_profit < 0]
+
+    # Profit
+    @property
+    def profit(self):
+        return np.array(tuple(pos.profit for pos in self))
+
+    @property
+    def entry_profit(self):
+        return np.array(tuple(pos.profit for pos in self if pos.is_entry))
+
+    @property
+    def adjust_profit(self):
+        return np.array(tuple(pos.profit for pos in self if pos.is_adjust))
+
+    @property
+    def close_profit(self):
+        return np.array(tuple(pos.profit for pos in self if pos.is_close))
+
+    @property
+    def long_entry_profit(self):
+        return self.close_profit[self.entry_side == Side.LONG]
+
+    @property
+    def long_adjust_profit(self):
+        return self.adjust_profit[self.adjust_side == Side.LONG]
+
+    @property
+    def long_close_profit(self):
+        return self.close_profit[self.close_side == Side.LONG]
+
+    @property
+    def short_entry_profit(self):
+        return self.entry_profit[self.entry_side == Side.SHORT]
+
+    @property
+    def short_adjust_profit(self):
+        return self.adjust_profit[self.adjust_side == Side.SHORT]
+
+    @property
+    def short_close_profit(self):
+        return self.close_profit[self.close_side == Side.SHORT]
+
+    @property
+    def positive_close_profit(self):
+        return self.close_profit[self.close_profit > 0]
+
+    @property
+    def zero_close_profit(self):
+        return self.close_profit[self.close_profit == 0]
+
+    @property
+    def negative_close_profit(self):
+        return self.close_profit[self.close_profit < 0]
+
+    # Stats
     @property
     def win_rate(self):
         """
@@ -121,7 +394,7 @@ class Positions(Columnar):
         :return: float between 0 and 1
         """
         try:
-            return self.number_of_wins / self.number_of_trades
+            return self.number_of_wins / self.number_of_closed_positions
         except ZeroDivisionError:
             return .0
 
@@ -142,7 +415,7 @@ class Positions(Columnar):
         :return: float between 0 and 1
         """
         try:
-            return self.number_of_losses / self.number_of_trades
+            return self.number_of_losses / self.number_of_closed_positions
         except ZeroDivisionError:
             return .0
 
@@ -161,7 +434,7 @@ class Positions(Columnar):
         Returns the largest profit of all trades.
         """
         try:
-            return np.max(self.positive_profit)
+            return np.max(self.positive_close_profit)
         except ValueError:
             return .0
 
@@ -169,7 +442,7 @@ class Positions(Columnar):
     def largest_profit_date(self):
         """Returns the date of the largest winning trade."""
         try:
-            return self.exit_time[np.where(self.profit == self.largest_profit)[0][0]]
+            return self.close_timestamp[np.where(self.profit == self.largest_profit)[0][0]]
         except IndexError:
             return None
 
@@ -177,46 +450,50 @@ class Positions(Columnar):
     def largest_loss(self):
         """Returns the largest loss of all trades."""
         try:
-            return np.min(self.negative_profit)
+            return np.min(self.negative_close_profit)
         except ValueError:
             return .0
 
     @property
-    def largest_loss_date(self):
+    def largest_loss_date(self) -> int | None:
         """Return the date of the largest loosing trade."""
         try:
-            return self.exit_time[np.where(self.profit == self.largest_loss)[0][0]]
+            return self.close_timestamp[np.where(self.profit == self.largest_loss)[0][0]]
         except IndexError:
             return None
 
     @property
-    def number_of_trades(self):
-        return len(self.profit)
+    def number_of_opened_positions(self):
+        return len(self.entry_time)
+
+    @property
+    def number_of_closed_positions(self):
+        return len(self.close_time)
 
     @property
     def number_of_losses(self):
         """Returns the number of loosing trades, (profit < 0)."""
-        return len(self.negative_profit)
+        return len(self.negative_close_profit)
 
     @property
     def number_of_wins(self):
         """Returns the number of winning trades, (profit > 0)."""
-        return len(self.positive_profit)
+        return len(self.positive_close_profit)
 
     @property
     def sum_profit(self):
         """Returns the sum of all the profitable trades."""
-        return sum(self.positive_profit)
+        return sum(self.positive_close_profit)
 
     @property
     def sum_loss(self):
         """Returns the sum of all the loosing trades."""
-        return sum(self.negative_profit)
+        return sum(self.negative_close_profit)
 
     @property
     def sum_profit_and_loss(self):
-        """Returns the sum of all the trades."""
-        return sum(self.profit)
+        """Returns the sum of closed position profits."""
+        return sum(self.close_profit)
 
     @property
     def profit_factor(self):
@@ -230,7 +507,7 @@ class Positions(Columnar):
         :return:
         """
         try:
-            return (self.win_rate * self.average_profit) / (self.loss_rate * abs(self.average_loss))
+            return (self.win_rate*self.average_profit) / (self.loss_rate*abs(self.average_loss))
         except ZeroDivisionError:
             return .0
 
@@ -244,7 +521,7 @@ class Positions(Columnar):
 
         Note: Same as self.average_profit_and_loss
         """
-        return (self.win_rate * self.average_profit) - (self.loss_rate * abs(self.average_loss))
+        return self.win_rate*self.average_profit - self.loss_rate*abs(self.average_loss)
 
     @property
     def average_profit(self):
@@ -273,6 +550,6 @@ class Positions(Columnar):
         Note: Same as self.expectancy
         """
         try:
-            return self.sum_profit_and_loss / self.number_of_trades
+            return self.sum_profit_and_loss / self.number_of_closed_positions
         except ZeroDivisionError:
             return .0

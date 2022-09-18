@@ -3,18 +3,19 @@ import logging
 import os
 from datetime import datetime
 from functools import wraps
+from typing import Callable
 
 from util.inspect_util import is_public
 
 
-def create_logger(
+def get_logger(
         name: str,
         *,
         fmt='%(levelname)s-%(name)s: %(message)s',
         date_fmt='%Y-%m-%d %H:%M:%S',
         level=logging.INFO,
-        file_path: str = None,
-):
+        file_path: str = '',
+) -> logging.Logger:
     """
     Creates a new logger with a StreamHandler and a FileHandler if `file_path` is not None.
 
@@ -24,14 +25,15 @@ def create_logger(
     :param fmt: Log message format.
     :param date_fmt: Log message date format.
     :param level: Minimum logging level.
-    :param file_path: If not None, creates a file and logs messages to `file_path`.
+    :param file_path: If not empty string, creates a file and logs messages to `file_path`.
     :return: Logger object
     """
 
     logger = logging.getLogger(name=name)
+
     if not logger.handlers:
         logger.propagate = False
-        logger.setLevel(logging.INFO)
+        logger.setLevel(level)
 
         formatter = logging.Formatter(
             fmt=fmt,
@@ -44,7 +46,7 @@ def create_logger(
         stream_handler.setFormatter(fmt=formatter)
         logger.addHandler(stream_handler)
 
-        if file_path is not None:
+        if file_path:
             if not os.path.exists(file_path):
                 os.makedirs(file_path)
 
@@ -57,7 +59,7 @@ def create_logger(
     return logger
 
 
-def log_return(logger: logging.Logger, *, level=logging.INFO, log=True, repr_=True):
+def log_return(logger: logging.Logger, *, level=logging.INFO, log=True, repr_=True) -> Callable:
     """
     Logs the return value of public methods.
 
@@ -101,7 +103,7 @@ class LogReturnMeta(type):
     Check log_return decorator to see available parameters.
     """
 
-    kwargs = {}
+    kwargs: dict = {}
 
     def __new__(mcs, cls_name, cls_bases, cls_dict, **kwargs):
         cls_obj = super().__new__(mcs, cls_name, cls_bases, cls_dict)
@@ -109,3 +111,9 @@ class LogReturnMeta(type):
             mcs.kwargs[key] = val
         cls_obj = log_return(**mcs.kwargs)(cls_obj)
         return cls_obj
+
+
+if __name__ == "__main__":
+    import doctest
+
+    doctest.testmod(verbose=True)

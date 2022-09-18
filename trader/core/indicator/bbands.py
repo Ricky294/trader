@@ -4,17 +4,22 @@ import talib
 from trader.data.model import Candles
 from trader.data.candle_schema import HIGH_PRICE, LOW_PRICE, CLOSE_PRICE
 
-from trader.core.super_enum import MA
+from trader.core.const import MA
 from trader.core.indicator import Indicator
 
 
 class BBANDSIndicator(Indicator):
-    """Bollinger Bands"""
+    """
+    Bollinger Bands - BBANDS
+
+    Overlap Studies
+    """
 
     color = dict(upper="#2962ff", lower="#2962ff", middle="#ff6d00")
 
     def __init__(
             self,
+            candles: Candles,
             period=5,
             std_dev_up=2,
             std_dev_down=2,
@@ -24,6 +29,19 @@ class BBANDSIndicator(Indicator):
         self.std_dev_up = std_dev_up
         self.std_dev_down = std_dev_down
         self.ma = ma
+        super().__init__(candles)
+
+    @property
+    def upper_band(self):
+        return self._current_slice(self._upper_band)
+
+    @property
+    def middle_band(self):
+        return self._current_slice(self._middle_band)
+
+    @property
+    def lower_band(self):
+        return self._current_slice(self._lower_band)
 
     def __call__(self, candles: Candles):
         """
@@ -34,11 +52,10 @@ class BBANDSIndicator(Indicator):
         :return: BBANDSResult - upper, middle, lower
         """
 
-        self.__candles = candles
-        data_line = candles.average(HIGH_PRICE, LOW_PRICE, CLOSE_PRICE)
+        self._candles = candles
 
-        self.upper_band, self.middle_band, self.lower_band = talib.BBANDS(
-            data_line,
+        self._upper_band, self._middle_band, self._lower_band = talib.BBANDS(
+            candles.average(HIGH_PRICE, LOW_PRICE, CLOSE_PRICE),
             timeperiod=self.period,
             nbdevup=self.std_dev_up,
             nbdevdn=self.std_dev_down,
@@ -53,7 +70,7 @@ class BBANDSIndicator(Indicator):
 
         :return: bool numpy array
         """
-        return self.__candles.high_prices > self.upper_band
+        return self.candles.high_prices > self.upper_band
 
     def close_price_above_upper_band(self) -> np.ndarray:
         """
@@ -63,7 +80,7 @@ class BBANDSIndicator(Indicator):
 
         :return: bool numpy array
         """
-        return self.__candles.close_prices > self.upper_band
+        return self.candles.close_prices > self.upper_band
 
     def low_price_below_lower_band(self) -> np.ndarray:
         """
@@ -73,7 +90,7 @@ class BBANDSIndicator(Indicator):
 
         :return: bool numpy array
         """
-        return self.__candles.low_prices < self.lower_band
+        return self.candles.low_prices < self.lower_band
 
     def close_price_below_lower_band(self) -> np.ndarray:
         """
@@ -83,4 +100,4 @@ class BBANDSIndicator(Indicator):
 
         :return: bool numpy array
         """
-        return self.__candles.close_prices < self.lower_band
+        return self.candles.close_prices < self.lower_band

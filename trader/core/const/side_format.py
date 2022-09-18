@@ -1,9 +1,0 @@
-__all__ = ['NUMERIC', 'BUY_SELL', 'LONG_SHORT', 'SIDE_FORMAT']
-
-from typing import Final
-
-NUMERIC: Final = 'NUMERIC'
-BUY_SELL: Final = 'BUY_SELL'
-LONG_SHORT: Final = 'LONG_SHORT'
-
-SIDE_FORMAT: Final = (NUMERIC, BUY_SELL, LONG_SHORT)

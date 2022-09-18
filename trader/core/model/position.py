@@ -1,127 +1,51 @@
 from __future__ import annotations
 
-from datetime import datetime
+from dataclasses import dataclass, field
+from itertools import count
+from typing import Final
 
-import pandas as pd
+from trader.core.const import Side, BrokerEvent
+from trader.data.model import Model, Symbol
 
-import trader.core.model as core_model
-from trader.core.super_enum import OrderSide
-from trader.core.exception import PositionError
+POSITION_CLOSE: Final = -1
+POSITION_ENTRY: Final = 0
 
-from trader.data.model import Model
+instance_counter = count(1)
 
 
+@dataclass(frozen=True, kw_only=True)
 class Position(Model):
+    __count: int = field(default_factory=lambda: next(instance_counter), init=False, repr=False)
 
-    @classmethod
-    def from_market_order(
-            cls,
-            order: core_model.MarketOrder,
-            leverage: int,
-            entry_time: int,
-            entry_price: float,
-            position_id=None,
-    ):
-        return cls(
-            position_id=position_id,
-            symbol=order.symbol,
-            amount=order.amount,
-            quantity=order.quantity,
-            side=order.side,
-            leverage=leverage,
-            entry_time=entry_time,
-            entry_price=entry_price,
-        )
-
-    @classmethod
-    def from_limit_order(
-            cls,
-            order: core_model.LimitOrder,
-            leverage: int,
-            entry_time: int,
-            position_id=None,
-    ):
-        return cls(
-            position_id=position_id,
-            symbol=order.symbol,
-            amount=order.amount,
-            quantity=order.quantity,
-            side=order.side,
-            leverage=leverage,
-            entry_time=entry_time,
-            entry_price=order.price,
-        )
-
-    def __init__(
-            self,
-            symbol: str,
-            amount: float,
-            quantity: float,
-            side: OrderSide,
-            leverage: int,
-            entry_time: float,
-            entry_price: float,
-            position_id=None,
-    ):
-        super(Position, self).__init__(entry_time)
-        self.position_id = position_id
-        self.symbol = symbol
-        self.side = side
-        self.amount = amount
-        self.quantity = quantity
-        self.leverage = leverage
-        self.entry_price = entry_price
-        self.exit_time = None
-        self.exit_price = None
-        self.closed = False
-
-    def close(self, time: float, price: float):
-        if self.closed:
-            raise PositionError("Position already closed!")
-
-        self.exit_time = time
-        self.exit_price = price
-        self.closed = True
+    symbol: Symbol
+    side: Side
+    leverage: int
+    amount: float
+    quantity: float
+    price: float
+    fee: float
+    state: int
+    profit: float
 
     @property
-    def dt_entry_time(self):
-        """Converts entry timestamp to datetime object."""
-        return datetime.fromtimestamp(self.time)
+    def is_open(self):
+        return self.state != POSITION_CLOSE
 
     @property
-    def pd_entry_time(self):
-        """Converts entry timestamp to pandas datetime object."""
-        return pd.to_datetime(self.time, unit="s")
+    def is_close(self):
+        return self.state == POSITION_CLOSE
 
     @property
-    def dt_exit_time(self):
-        """Converts exit timestamp to datetime object."""
-        return datetime.fromtimestamp(self.exit_time)
+    def is_entry(self):
+        return self.state == POSITION_ENTRY
 
     @property
-    def pd_exit_time(self):
-        """
-        Converts exit timestamp to pandas datetime object.
+    def is_adjust(self):
+        return self.state > 0
 
-        :examples:
-
-        >>> p1 = Position(symbol='XYZ', amount=100, quantity=1, side=OrderSide.LONG, leverage=1,
-        ...               entry_time=1623300000, entry_price=100)
-        >>> p1.close(1623300000, 200)
-        >>> p1.pd_exit_time()
-        """
-        return pd.to_datetime(self.exit_time, unit="s")
-
-    @property
-    def profit(self):
-        return NotImplementedError
-
-
-if __name__ == '__main__':
-    import doctest
-    p1 = Position(
-        symbol="XYZ", amount=100, quantity=1, side=OrderSide.LONG, leverage=1,
-        entry_time=1623300000, entry_price=100
-    )
-    print(p1.__str__())
-    doctest.testmod(extraglobs={'p1': p1})
+    def event(self):
+        if self.state == POSITION_ENTRY:
+            return BrokerEvent.ON_POSITION_OPEN
+        elif self.state == POSITION_CLOSE:
+            return BrokerEvent.ON_POSITION_CLOSE
+        return BrokerEvent.ON_POSITION_ADJUST

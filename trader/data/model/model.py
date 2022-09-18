@@ -1,74 +1,46 @@
-import copy
-import time
+import inspect
+from dataclasses import dataclass, field, asdict, astuple
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
 
+from util.generate import generate_uuid4
 
+from itertools import count
+
+instance_counter = count(1)
+
+
+@dataclass(frozen=True, order=True, kw_only=True)
 class Model:
+    __count: int = field(default_factory=lambda: next(instance_counter), init=False, repr=False)
+    id: str = field(default_factory=generate_uuid4)
+    create_time: datetime = field(default_factory=datetime.now)
 
-    def __init__(self, create_time: float | None):
-        """
-        Creates a value object.
+    def copy_with(self, **kwargs):
+        signature = inspect.signature(self.__init__)
+        init_params = tuple(name for name, parameter in signature.parameters.items())
 
-        :param _id: Unique id for the object. Auto generated if not defined (Optional).
-        :param create_time: Creation time in seconds. Gets current timestamp if not defined (Optional).
-        """
-        self.time = time.time() if create_time is None else create_time
-
-    def copy_init(self, **kwargs):
-        """
-        Creates a new object of type self.
-
-        If there is a corresponding keyword argument in self,
-        it uses the argument in the new object otherwise it copies the original value from self.
-
-        :return: new object of type self
-        """
-        params = {
-            key: kwargs[key] if key in kwargs
-            else copy.deepcopy(val)
-            for key, val in self.__dict__.items()
-        }
-
-        return type(self)(**params)
-
-    def __str__(self):
-        return (
-            f'{self.__class__.__name__}(' +
-            ', '.join(
-                f'{key.strip("_")}={val}'
-                for key, val in self.__dict__.items()
-            ) + ')'
+        new_params = dict(
+            (name, kwargs[name]) if name in kwargs else (name, val)
+            for name, val in vars(self).items() if name in init_params
         )
 
-    def __repr__(self):
-        return (
-            f'{self.__class__.__name__}(' +
-            ', '.join(
-                f'{key.strip("_")}={val!r}'
-                for key, val in self.__dict__.items()
-            ) + ')'
-        )
+        return type(self)(**new_params)
 
-    def __eq__(self, other):
-        return isinstance(other, type(self)) \
-               and all([val1 == val2 for val1, val2 in zip(self.__dict__, other.__dict__)])
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def to_dict(self) -> dict[str, any]:
-        return self.__dict__
-
-    def to_list(self):
-        return list(val for val in self.__dict__.values())
+    @property
+    def create_timestamp(self):
+        return self.create_time.timestamp()
 
     def to_tuple(self):
-        return tuple(val for val in self.__dict__.values())
+        return astuple(self)
+
+    def to_dict(self):
+        return asdict(self)
 
     def to_array(self):
-        return np.array([val for val in self.__dict__.values()])
+        return np.array(self.to_tuple())
 
     def to_dataframe(self):
         return pd.DataFrame(self.to_dict(), index=[0])

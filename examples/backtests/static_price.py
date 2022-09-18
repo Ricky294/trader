@@ -1,12 +1,15 @@
 from datetime import datetime
 
 from trader.backtest import BacktestFuturesBroker
+from trader.backtest.broker import Percentage
 
-from trader.core.model import Balance, Position, Order
+from trader.core.model import Balance, Position
 from trader.core.strategy import Strategy
-from trader.core.const import Side, OrderType, Market
+from trader.core.const import Side, Market
 
 from trader.data.binance import get_store_candles, Interval
+from trader.data.model import Symbol
+from util.performance import measure_performance
 
 
 class StaticPriceStrategy(Strategy):
@@ -19,24 +22,22 @@ class StaticPriceStrategy(Strategy):
 
     Closes SHORT if latest close price is below 40.000.
     """
+    def __init__(self, *args, **kwargs):
+        self.broker.set_leverage(symbol=symbol, leverage=1)
 
     def on_not_in_position(self):
         if self.candles.latest_close_price > 40_000 > self.candles.close_prices[-2]:
-            order = Order(
+            self.broker.enter_position(
                 symbol=symbol,
                 side=Side.LONG,
-                type=OrderType.MARKET,
                 amount=1000,
             )
-            self.broker.create_order(order)
         elif self.candles.latest_close_price > 60_000 > self.candles.close_prices[-2]:
-            order = Order(
+            self.broker.enter_position(
                 symbol=symbol,
                 side=Side.SHORT,
-                type=OrderType.MARKET,
-                amount=100,
+                amount=Percentage(100),
             )
-            self.broker.create_order(order)
 
     def on_in_position(self, position: Position):
         if position.side is Side.LONG and self.candles.latest_close_price > 55_000:
@@ -48,9 +49,7 @@ class StaticPriceStrategy(Strategy):
 if __name__ == '__main__':
 
     start_cash = 1000
-    base_currency = 'BTC'
-    quote_currency = 'USDT'
-    symbol = 'BTCUSDT'
+    symbol = Symbol('BTC', 'USDT')
 
     candles = get_store_candles(
         symbol=symbol,
@@ -62,12 +61,13 @@ if __name__ == '__main__':
     )
 
     broker = BacktestFuturesBroker(
-        balances=[Balance(time=candles.times[0], asset=quote_currency, available=start_cash)],
-        symbols_set_leverage={symbol: 1},
-        maker_fee_rate=0.0002,
-        taker_fee_rate=0.0004,
+        balances={symbol.quote: start_cash},
+        symbol_leverage_pair={symbol: 1},
+        maker_fee_percentage=0.2,
+        taker_fee_percentage=0.4,
     )
 
     strategy = StaticPriceStrategy(candles=candles, broker=broker)
+
     strategy.run()
     strategy.plot()

@@ -15,7 +15,7 @@ class FearAndGreed:
         return str(self.__dict__)
 
 
-def get_fear_and_greed(n=1):
+def get_fear_and_greed(n=1) -> list[FearAndGreed]:
     """
     Returns a list of dict with fear and greed data.
 

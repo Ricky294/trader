@@ -4,19 +4,36 @@ import talib
 from trader.data.model import Candles
 
 from trader.core.indicator import Indicator
-from trader.core.util.vectorized.trade import cross
+from trader.trade import cross
 
 
 class DMIIndicator(Indicator):
-    """Directional Movement Index"""
+    """
+    Directional Movement Index - DMI
+
+    Momentum Indicator
+    """
 
     color = {"adx": "#2a2e39", "plus_di": "#4caf50", "minus_di": "#f23645"}
 
-    def __init__(self, adx_period=14, plus_di_period=14, minus_di_period=14, volatility_limit=25.0):
+    def __init__(self, candles: Candles, adx_period=14, plus_di_period=14, minus_di_period=14, volatility_limit=25.0):
         self.adx_period = adx_period
         self.plus_di_period = plus_di_period
         self.minus_di_period = minus_di_period
         self.volatility_limit = volatility_limit
+        super().__init__(candles)
+
+    @property
+    def adx(self):
+        return self._current_slice(self._adx)
+
+    @property
+    def plus_di(self):
+        return self._current_slice(self._plus_di)
+
+    @property
+    def minus_di(self):
+        return self._current_slice(self._minus_di)
 
     def __call__(self, candles: Candles):
         """
@@ -27,21 +44,21 @@ class DMIIndicator(Indicator):
         :return: DMIResult - adx, minus_di, plus_di
         """
 
-        self.adx = talib.ADX(
+        self._adx = talib.ADX(
             candles.high_prices,
             candles.low_prices,
             candles.close_prices,
             self.adx_period
         )
 
-        self.plus_di = talib.PLUS_DI(
+        self._plus_di = talib.PLUS_DI(
             candles.high_prices,
             candles.low_prices,
             candles.close_prices,
             self.plus_di_period,
         )
 
-        self.minus_di = talib.MINUS_DI(
+        self._minus_di = talib.MINUS_DI(
             candles.high_prices,
             candles.low_prices,
             candles.close_prices,
